@@ -44,18 +44,28 @@ export const AUTH_FILES_QUOTA_PREVIEW_KEY = "authFilesPage.quotaPreview.v1";
 export const AUTH_FILES_QUOTA_AUTO_REFRESH_KEY = "authFilesPage.quotaAutoRefreshMs.v1";
 export const AUTH_FILES_FILES_VIEW_MODE_KEY = "authFilesPage.filesViewMode.v1";
 export const AUTH_FILES_MODEL_OWNER_GROUP_MAP_KEY = "authFilesPage.modelOwnerGroupMap.v1";
+export const AUTH_FILES_SORT_MODES = ["default", "az", "priority"] as const;
 
 export type QuotaPreviewMode = "5h" | "week";
 export type QuotaAutoRefreshMs = 0 | 5000 | 10000 | 30000 | 60000;
 export type FilesViewMode = "table" | "cards";
 export type AuthFilesModelOwnerGroupMap = Record<string, string>;
+export type AuthFilesSortMode = (typeof AUTH_FILES_SORT_MODES)[number];
 
 export type AuthFilesUiState = {
   tab?: "files" | "excluded" | "alias";
   filter?: string;
+  problemOnly?: boolean;
+  disabledOnly?: boolean;
   search?: string;
   page?: number;
+  sortMode?: AuthFilesSortMode;
 };
+
+const AUTH_FILES_SORT_MODE_SET = new Set<AuthFilesSortMode>(AUTH_FILES_SORT_MODES);
+
+export const isAuthFilesSortMode = (value: unknown): value is AuthFilesSortMode =>
+  typeof value === "string" && AUTH_FILES_SORT_MODE_SET.has(value as AuthFilesSortMode);
 
 export type AuthFilesDataCache = {
   savedAtMs: number;
@@ -85,8 +95,7 @@ const sanitizeAuthFileRestrictionsForCache = (
       const httpStatus = Number(record.http_status);
       const code = typeof record.code === "string" ? record.code : undefined;
       const reason = typeof record.reason === "string" ? record.reason : undefined;
-      const quotaWindow =
-        typeof record.quota_window === "string" ? record.quota_window : undefined;
+      const quotaWindow = typeof record.quota_window === "string" ? record.quota_window : undefined;
       const quotaWindowMinutes = Number(record.quota_window_minutes);
       const nextRetryAfter =
         typeof record.next_retry_after === "string" || typeof record.next_retry_after === "number"
@@ -398,6 +407,21 @@ const isLegacyAuthRestrictionActive = (file: AuthFileItem): boolean => {
   const status = normalizeTagValue(file.status);
   if (status === "error") return true;
   return parseDateLikeMs(file.next_retry_after) !== null;
+};
+
+const HEALTHY_AUTH_FILE_STATUSES = new Set(["", "ok", "healthy", "ready", "success", "available"]);
+
+export const hasAuthFileProblem = (file: AuthFileItem, nowMs = Date.now()): boolean => {
+  if (resolveAuthFileRestrictionBadges(file, nowMs).length > 0) return true;
+  if (file.unavailable === true) return true;
+  if (parseDateLikeMs(file.next_retry_after) !== null) return true;
+
+  const status = normalizeTagValue(file.status);
+  if (status && !HEALTHY_AUTH_FILE_STATUSES.has(status)) return true;
+
+  const statusMessage = String(file.status_message ?? "").trim();
+  if (!statusMessage) return false;
+  return !HEALTHY_AUTH_FILE_STATUSES.has(normalizeTagValue(statusMessage));
 };
 
 export const formatAuthFileRestrictionRemaining = (
@@ -802,6 +826,16 @@ export const resolveAuthFileSortKey = (file: AuthFileItem): string => {
   const channelName = readAuthFileChannelName(file);
   const fileName = String(file.name || "").trim();
   return `${channelName || fileName}\u0000${fileName}`;
+};
+
+export const resolveAuthFilePriority = (file: AuthFileItem): number => {
+  const value = file.priority;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
 };
 
 export const authFilesSortCollator = new Intl.Collator("zh-Hans-CN", {

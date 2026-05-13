@@ -326,9 +326,9 @@ describe("Auth Files helper coverage", () => {
       ],
     } as AuthFileItem;
 
-    expect(
-      resolveAuthFileRestrictionBadges(file, Date.parse("2026-05-06T08:00:00.000Z")),
-    ).toEqual([]);
+    expect(resolveAuthFileRestrictionBadges(file, Date.parse("2026-05-06T08:00:00.000Z"))).toEqual(
+      [],
+    );
   });
 
   test("shows auth-level quota recovery records as 429 restriction badges", () => {
@@ -503,7 +503,10 @@ describe("Auth Files helper coverage", () => {
         return useAuthFilesListState({
           files,
           filter: "codex",
+          problemOnly: false,
+          disabledOnly: false,
           search: ".json",
+          sortMode: "default",
           page,
           setPage,
           selectedFileNames,

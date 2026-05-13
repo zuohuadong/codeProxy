@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState, type RefObject, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
   BarChart3,
+  Ban,
   CircleHelp,
   Download,
   Eye,
+  Power,
+  PowerOff,
   Plus,
   RefreshCw,
   Search,
@@ -26,6 +30,7 @@ import { VirtualTable, type VirtualTableColumn } from "@/modules/ui/VirtualTable
 import { ToggleSwitch } from "@/modules/ui/ToggleSwitch";
 import type {
   AuthFileModelOwnerGroup,
+  AuthFilesSortMode,
   FilesViewMode,
   OAuthDialogTab,
   QuotaAutoRefreshMs,
@@ -51,6 +56,13 @@ interface AuthFilesFilesTabProps {
   filter: string;
   setFilter: (value: string) => void;
   filterCounts: { total: number; counts: Record<string, number> };
+  statusCounts: { problem: number; disabled: number };
+  problemOnly: boolean;
+  setProblemOnly: (value: boolean) => void;
+  disabledOnly: boolean;
+  setDisabledOnly: (value: boolean) => void;
+  sortMode: AuthFilesSortMode;
+  setSortMode: (value: AuthFilesSortMode) => void;
   modelOwnerGroupsLoading: boolean;
   modelOwnerGroups: AuthFileModelOwnerGroup[];
   selectedModelOwner: string;
@@ -84,6 +96,9 @@ interface AuthFilesFilesTabProps {
   setConfirm: (value: null | { type: "deleteSelection"; names: string[] }) => void;
   selectedFileNames: string[];
   deletingAll: boolean;
+  batchStatusUpdating: boolean;
+  batchDownload: (names: string[]) => Promise<void>;
+  batchSetEnabled: (names: string[], enabled: boolean) => Promise<void>;
   pageItems: AuthFileItem[];
   fileColumns: VirtualTableColumn<AuthFileItem>[];
   filesViewMode: FilesViewMode;
@@ -124,6 +139,13 @@ export function AuthFilesFilesTab({
   filter,
   setFilter,
   filterCounts,
+  statusCounts,
+  problemOnly,
+  setProblemOnly,
+  disabledOnly,
+  setDisabledOnly,
+  sortMode,
+  setSortMode,
   modelOwnerGroupsLoading,
   modelOwnerGroups,
   selectedModelOwner,
@@ -157,6 +179,9 @@ export function AuthFilesFilesTab({
   setConfirm,
   selectedFileNames,
   deletingAll,
+  batchStatusUpdating,
+  batchDownload,
+  batchSetEnabled,
   pageItems,
   fileColumns,
   filesViewMode,
@@ -206,6 +231,14 @@ export function AuthFilesFilesTab({
       })),
     ],
     [modelOwnerGroups, t],
+  );
+  const sortOptions = useMemo(
+    () => [
+      { value: "default", label: t("auth_files.sort_default") },
+      { value: "az", label: t("auth_files.sort_az") },
+      { value: "priority", label: t("auth_files.sort_priority") },
+    ],
+    [t],
   );
 
   useEffect(() => {
@@ -324,6 +357,61 @@ export function AuthFilesFilesTab({
 
               <div className={loading && filesLength === 0 ? "pointer-events-none opacity-60" : ""}>
                 {renderFilesViewModeTabs}
+              </div>
+
+              <div className="inline-flex flex-wrap items-center gap-1.5">
+                <div className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200 dark:bg-white/[0.04] dark:text-white/65 dark:ring-neutral-800">
+                  <AlertTriangle
+                    size={14}
+                    className={
+                      problemOnly
+                        ? "text-amber-600 dark:text-amber-300"
+                        : "text-slate-400 dark:text-white/35"
+                    }
+                  />
+                  <span>{t("auth_files.problem_filter_only")}</span>
+                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 tabular-nums dark:bg-white/10 dark:text-white/60">
+                    {statusCounts.problem}
+                  </span>
+                  <ToggleSwitch
+                    checked={problemOnly}
+                    onCheckedChange={setProblemOnly}
+                    ariaLabel={t("auth_files.problem_filter_only")}
+                  />
+                </div>
+                <div className="inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-50 px-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200 dark:bg-white/[0.04] dark:text-white/65 dark:ring-neutral-800">
+                  <Ban
+                    size={14}
+                    className={
+                      disabledOnly
+                        ? "text-rose-600 dark:text-rose-300"
+                        : "text-slate-400 dark:text-white/35"
+                    }
+                  />
+                  <span>{t("auth_files.disabled_filter_only")}</span>
+                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 tabular-nums dark:bg-white/10 dark:text-white/60">
+                    {statusCounts.disabled}
+                  </span>
+                  <ToggleSwitch
+                    checked={disabledOnly}
+                    onCheckedChange={setDisabledOnly}
+                    ariaLabel={t("auth_files.disabled_filter_only")}
+                  />
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5">
+                <span className="text-xs font-medium text-slate-500 dark:text-white/45">
+                  {t("auth_files.sort_label")}
+                </span>
+                <Select
+                  value={sortMode}
+                  onChange={(value) => setSortMode(value as AuthFilesSortMode)}
+                  options={sortOptions}
+                  aria-label={t("auth_files.sort_label")}
+                  variant="chip"
+                  className="w-[132px]"
+                />
               </div>
 
               <div className="inline-flex items-center gap-1.5">
@@ -452,6 +540,36 @@ export function AuthFilesFilesTab({
                   disabled={selectedCount === 0}
                 >
                   {t("auth_files.batch_clear")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="!h-8 px-2 text-xs"
+                  onClick={() => void batchDownload(selectedFileNames)}
+                  disabled={selectedCount === 0}
+                >
+                  <Download size={14} />
+                  {t("auth_files.batch_download")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="!h-8 px-2 text-xs"
+                  onClick={() => void batchSetEnabled(selectedFileNames, true)}
+                  disabled={selectedCount === 0 || batchStatusUpdating}
+                >
+                  <Power size={14} />
+                  {t("auth_files.batch_enable")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="!h-8 px-2 text-xs"
+                  onClick={() => void batchSetEnabled(selectedFileNames, false)}
+                  disabled={selectedCount === 0 || batchStatusUpdating}
+                >
+                  <PowerOff size={14} />
+                  {t("auth_files.batch_disable")}
                 </Button>
                 <Button
                   variant="danger"

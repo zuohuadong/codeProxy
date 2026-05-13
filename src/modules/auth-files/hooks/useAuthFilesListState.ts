@@ -3,26 +3,43 @@ import type { AuthFileItem } from "@/lib/http/types";
 import {
   AUTH_FILES_PAGE_SIZE,
   authFilesSortCollator,
+  hasAuthFileProblem,
+  isAuthFilesSortMode,
   normalizeProviderKey,
+  resolveAuthFilePriority,
   resolveAuthFileSortKey,
   resolveFileType,
+  type AuthFilesSortMode,
 } from "@/modules/auth-files/helpers/authFilesPageUtils";
 import { isRuntimeOnlyAuthFile } from "@/modules/auth-files/helpers/authFilesPageUtils";
 
 interface UseAuthFilesListStateOptions {
   files: AuthFileItem[];
   filter: string;
+  problemOnly: boolean;
+  disabledOnly: boolean;
   search: string;
+  sortMode: AuthFilesSortMode;
   page: number;
   setPage: Dispatch<SetStateAction<number>>;
   selectedFileNames: string[];
   setSelectedFileNames: Dispatch<SetStateAction<string[]>>;
 }
 
+const escapeWildcardSearchSegment = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildWildcardSearch = (value: string): RegExp | null => {
+  if (!value.includes("*")) return null;
+  return new RegExp(value.split("*").map(escapeWildcardSearchSegment).join(".*"), "i");
+};
+
 export function useAuthFilesListState({
   files,
   filter,
+  problemOnly,
+  disabledOnly,
   search,
+  sortMode,
   page,
   setPage,
   selectedFileNames,
@@ -34,38 +51,69 @@ export function useAuthFilesListState({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [files]);
 
+  const statusCounts = useMemo(
+    () => ({
+      problem: files.filter((file) => hasAuthFileProblem(file)).length,
+      disabled: files.filter((file) => file.disabled === true).length,
+    }),
+    [files],
+  );
+
   const searchFilteredFiles = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const wildcardSearch = buildWildcardSearch(search.trim());
     return files.filter((file) => {
       if (!q) return true;
-      const name = String(file.name || "").toLowerCase();
-      const provider = String(file.provider || "").toLowerCase();
-      const type = String(file.type || "").toLowerCase();
-      return name.includes(q) || provider.includes(q) || type.includes(q);
+      const values = [
+        file.name,
+        file.label,
+        file.email,
+        file.account,
+        file.provider,
+        file.type,
+        ...((Array.isArray(file.display_tags) ? file.display_tags : []) as unknown[]),
+        ...((Array.isArray(file.custom_tags) ? file.custom_tags : []) as unknown[]),
+      ].map((value) => String(value ?? ""));
+      return values.some((value) =>
+        wildcardSearch ? wildcardSearch.test(value) : value.toLowerCase().includes(q),
+      );
     });
   }, [files, search]);
 
+  const statusFilteredFiles = useMemo(
+    () =>
+      searchFilteredFiles.filter((file) => {
+        if (problemOnly && !hasAuthFileProblem(file)) return false;
+        if (disabledOnly && file.disabled !== true) return false;
+        return true;
+      }),
+    [disabledOnly, problemOnly, searchFilteredFiles],
+  );
+
   const filterCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    searchFilteredFiles.forEach((file) => {
+    statusFilteredFiles.forEach((file) => {
       const typeKey = normalizeProviderKey(resolveFileType(file));
       counts[typeKey] = (counts[typeKey] ?? 0) + 1;
     });
-    return { total: searchFilteredFiles.length, counts };
-  }, [searchFilteredFiles]);
+    return { total: statusFilteredFiles.length, counts };
+  }, [statusFilteredFiles]);
 
   const filteredFiles = useMemo(() => {
     const normalizedFilter = normalizeProviderKey(filter);
     const scoped =
       !normalizedFilter || normalizedFilter === "all"
-        ? searchFilteredFiles
-        : searchFilteredFiles.filter(
+        ? statusFilteredFiles
+        : statusFilteredFiles.filter(
             (file) => normalizeProviderKey(resolveFileType(file)) === normalizedFilter,
           );
     return [...scoped].sort((a, b) =>
-      authFilesSortCollator.compare(resolveAuthFileSortKey(a), resolveAuthFileSortKey(b)),
+      isAuthFilesSortMode(sortMode) && sortMode === "priority"
+        ? resolveAuthFilePriority(b) - resolveAuthFilePriority(a) ||
+          authFilesSortCollator.compare(resolveAuthFileSortKey(a), resolveAuthFileSortKey(b))
+        : authFilesSortCollator.compare(resolveAuthFileSortKey(a), resolveAuthFileSortKey(b)),
     );
-  }, [filter, searchFilteredFiles]);
+  }, [filter, sortMode, statusFilteredFiles]);
 
   const totalPages = Math.max(1, Math.ceil(filteredFiles.length / AUTH_FILES_PAGE_SIZE));
   const safePage = Math.min(totalPages, Math.max(1, page));
@@ -153,6 +201,7 @@ export function useAuthFilesListState({
 
   return {
     providerOptions,
+    statusCounts,
     filterCounts,
     filteredFiles,
     totalPages,

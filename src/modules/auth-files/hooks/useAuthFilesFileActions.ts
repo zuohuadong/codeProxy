@@ -10,6 +10,7 @@ import {
 } from "@/modules/auth-files/helpers/authFilesPageUtils";
 
 interface UseAuthFilesFileActionsOptions {
+  files: AuthFileItem[];
   loadAll: () => Promise<AuthFileItem[]>;
   fileInputRef: RefObject<HTMLInputElement | null>;
   detailFile: AuthFileItem | null;
@@ -20,6 +21,7 @@ interface UseAuthFilesFileActionsOptions {
 }
 
 export function useAuthFilesFileActions({
+  files,
   loadAll,
   fileInputRef,
   detailFile,
@@ -33,8 +35,17 @@ export function useAuthFilesFileActions({
 
   const [uploading, setUploading] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [batchStatusUpdating, setBatchStatusUpdating] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<Record<string, boolean>>({});
   const [tagSavingByName, setTagSavingByName] = useState<Record<string, boolean>>({});
+
+  const buildSelectedTargets = useCallback(
+    (names: string[]) => {
+      const nameSet = new Set(names.map((name) => name.trim()).filter(Boolean));
+      return files.filter((file) => nameSet.has(file.name));
+    },
+    [files],
+  );
 
   const downloadAuthFile = useCallback(
     async (file: AuthFileItem) => {
@@ -219,6 +230,108 @@ export function useAuthFilesFileActions({
     [notify, setFiles, t],
   );
 
+  const batchSetEnabled = useCallback(
+    async (names: string[], enabled: boolean) => {
+      const targets = buildSelectedTargets(names);
+      if (targets.length === 0) return;
+
+      const targetNames = targets.map((file) => file.name);
+      const targetNameSet = new Set(targetNames);
+      const previousDisabled = new Map(targets.map((file) => [file.name, Boolean(file.disabled)]));
+      const nextDisabled = !enabled;
+
+      setBatchStatusUpdating(true);
+      setStatusUpdating((prev) => ({
+        ...prev,
+        ...Object.fromEntries(targetNames.map((name) => [name, true])),
+      }));
+      setFiles((prev) =>
+        prev.map((file) =>
+          targetNameSet.has(file.name) ? { ...file, disabled: nextDisabled } : file,
+        ),
+      );
+
+      const confirmed = new Map<string, boolean>();
+      let success = 0;
+      let failed = 0;
+
+      for (const name of targetNames) {
+        try {
+          const result = await authFilesApi.setStatus(name, nextDisabled);
+          confirmed.set(name, Boolean(result.disabled));
+          success += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      setFiles((prev) =>
+        prev.map((file) => {
+          if (!targetNameSet.has(file.name)) return file;
+          if (confirmed.has(file.name)) {
+            return { ...file, disabled: confirmed.get(file.name) === true };
+          }
+          return { ...file, disabled: previousDisabled.get(file.name) === true };
+        }),
+      );
+      setStatusUpdating((prev) => {
+        const next = { ...prev };
+        targetNames.forEach((name) => delete next[name]);
+        return next;
+      });
+      setBatchStatusUpdating(false);
+
+      if (failed === 0) {
+        notify({
+          type: "success",
+          message: t("auth_files.batch_status_success", { count: success }),
+        });
+      } else {
+        notify({
+          type: "error",
+          message: t("auth_files.batch_status_partial", { success, failed }),
+        });
+      }
+    },
+    [buildSelectedTargets, notify, setFiles, t],
+  );
+
+  const batchDownload = useCallback(
+    async (names: string[]) => {
+      const targets = buildSelectedTargets(names);
+      if (targets.length === 0) return;
+
+      const confirmed = window.confirm(
+        t(
+          "auth_files.batch_download_sensitive_confirm",
+          "This downloads {{count}} full auth files and may include sensitive credentials. Continue?",
+          { count: targets.length },
+        ),
+      );
+      if (!confirmed) return;
+
+      let success = 0;
+      let failed = 0;
+      for (const file of targets) {
+        try {
+          await authFilesApi.downloadFile(file.name);
+          success += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      notify({
+        type: failed === 0 ? "success" : "error",
+        message:
+          failed === 0
+            ? t("auth_files.batch_download_success", { count: success })
+            : t("auth_files.batch_download_partial", { success, failed }),
+      });
+    },
+    [buildSelectedTargets, notify, t],
+  );
+
   const saveAuthFileTags = useCallback(
     async (file: AuthFileItem, customTags: string[], displayTags: string[]) => {
       const name = file.name;
@@ -270,9 +383,12 @@ export function useAuthFilesFileActions({
   return {
     uploading,
     deletingAll,
+    batchStatusUpdating,
     statusUpdating,
     tagSavingByName,
     downloadAuthFile,
+    batchDownload,
+    batchSetEnabled,
     handleUpload,
     handleDeleteSelection,
     setFileEnabled,

@@ -31,6 +31,8 @@ import {
   resolveFileType,
   resolveProviderLabel,
   writeAuthFilesUiState,
+  isAuthFilesSortMode,
+  type AuthFilesSortMode,
   type OAuthDialogTab,
 } from "@/modules/auth-files/helpers/authFilesPageUtils";
 
@@ -125,7 +127,10 @@ export function AuthFilesPage() {
   const [oauthDialogDefaultTab, setOauthDialogDefaultTab] = useState<OAuthDialogTab>("codex");
 
   const [filter, setFilter] = useState("all");
+  const [problemOnly, setProblemOnly] = useState(false);
+  const [disabledOnly, setDisabledOnly] = useState(false);
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<AuthFilesSortMode>("default");
   const [page, setPage] = useState(1);
   const [selectedFileNames, setSelectedFileNames] = useState<string[]>([]);
   const [proxyPoolEntries, setProxyPoolEntries] = useState<ProxyPoolEntry[]>([]);
@@ -208,14 +213,18 @@ export function AuthFilesPage() {
   const {
     uploading,
     deletingAll,
+    batchStatusUpdating,
     statusUpdating,
     tagSavingByName,
     downloadAuthFile,
+    batchDownload,
+    batchSetEnabled,
     handleUpload,
     handleDeleteSelection,
     setFileEnabled,
     saveAuthFileTags,
   } = useAuthFilesFileActions({
+    files,
     loadAll,
     fileInputRef,
     detailFile,
@@ -230,7 +239,10 @@ export function AuthFilesPage() {
     if (!state) return;
     if (state.tab) setTab(state.tab);
     if (typeof state.filter === "string") setFilter(state.filter);
+    if (typeof state.problemOnly === "boolean") setProblemOnly(state.problemOnly);
+    if (typeof state.disabledOnly === "boolean") setDisabledOnly(state.disabledOnly);
     if (typeof state.search === "string") setSearch(state.search);
+    if (isAuthFilesSortMode(state.sortMode)) setSortMode(state.sortMode);
     if (typeof state.page === "number" && Number.isFinite(state.page))
       setPage(Math.max(1, Math.round(state.page)));
   }, []);
@@ -250,8 +262,8 @@ export function AuthFilesPage() {
   }, []);
 
   useEffect(() => {
-    writeAuthFilesUiState({ tab, filter, search, page });
-  }, [filter, page, search, tab]);
+    writeAuthFilesUiState({ tab, filter, problemOnly, disabledOnly, search, sortMode, page });
+  }, [disabledOnly, filter, page, problemOnly, search, sortMode, tab]);
 
   useEffect(() => {
     if (tab !== "files") return;
@@ -270,6 +282,7 @@ export function AuthFilesPage() {
 
   const {
     providerOptions,
+    statusCounts,
     filterCounts,
     filteredFiles,
     totalPages,
@@ -288,7 +301,10 @@ export function AuthFilesPage() {
   } = useAuthFilesListState({
     files,
     filter,
+    problemOnly,
+    disabledOnly,
     search,
+    sortMode,
     page,
     setPage,
     selectedFileNames,
@@ -446,6 +462,22 @@ export function AuthFilesPage() {
             filter={filter}
             setFilter={updateFilter}
             filterCounts={filterCounts}
+            statusCounts={statusCounts}
+            problemOnly={problemOnly}
+            setProblemOnly={(value) => {
+              setProblemOnly(value);
+              setPage(1);
+            }}
+            disabledOnly={disabledOnly}
+            setDisabledOnly={(value) => {
+              setDisabledOnly(value);
+              setPage(1);
+            }}
+            sortMode={sortMode}
+            setSortMode={(value) => {
+              setSortMode(value);
+              setPage(1);
+            }}
             modelOwnerGroupsLoading={modelOwnerGroupsLoading}
             modelOwnerGroups={modelOwnerGroups}
             selectedModelOwner={selectedModelOwner}
@@ -479,6 +511,9 @@ export function AuthFilesPage() {
             setConfirm={setConfirm}
             selectedFileNames={selectedFileNames}
             deletingAll={deletingAll}
+            batchStatusUpdating={batchStatusUpdating}
+            batchDownload={batchDownload}
+            batchSetEnabled={batchSetEnabled}
             pageItems={pageItems}
             fileColumns={fileColumns}
             filesViewMode={filesViewMode}
