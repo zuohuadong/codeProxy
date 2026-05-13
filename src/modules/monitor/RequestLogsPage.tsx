@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Filter, LoaderCircle, RefreshCw, ScrollText } from "lucide-react";
+import { AlertTriangle, Filter, Info, LoaderCircle, RefreshCw, ScrollText } from "lucide-react";
 import { usageApi } from "@/lib/http/apis";
 import type { ClearUsageLogsPayload, UsageLogItem, UsageLogsResponse } from "@/lib/http/apis/usage";
 import { Button } from "@/modules/ui/Button";
@@ -23,12 +23,17 @@ import {
   type TimeRange,
 } from "@/modules/monitor/requestLogsShared";
 type StatusFilter = "" | "success" | "failed";
+type RequestLogsCapability = "ok" | "unsupported";
 const DEFAULT_LOG_STATS = { total: 0, success_rate: 0, total_tokens: 0, total_cost: 0 };
 const DEFAULT_CLEAR_OPTIONS: ClearUsageLogsPayload = {
   clear_body_content: true,
   clear_detail_content: true,
   clear_request_records: false,
 };
+
+function isRequestLogsUnsupportedError(message: string): boolean {
+  return /404|not found|unsupported|not available|no route/i.test(message);
+}
 
 // ---------------------------------------------------------------------------
 // Main page
@@ -70,6 +75,7 @@ export function RequestLogsPage() {
   const [rawItems, setRawItems] = useState<UsageLogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [capability, setCapability] = useState<RequestLogsCapability>("ok");
 
   // Pagination state
   const [totalCount, setTotalCount] = useState(0);
@@ -145,10 +151,26 @@ export function RequestLogsPage() {
           ...DEFAULT_LOG_STATS,
           ...resp.stats,
         });
+        setCapability("ok");
         setLastUpdatedAt(Date.now());
       } catch (err) {
         const message = err instanceof Error ? err.message : t("request_logs.refresh_failed");
-        notify({ type: "error", message });
+        if (isRequestLogsUnsupportedError(message)) {
+          setRawItems([]);
+          setTotalCount(0);
+          setCurrentPage(1);
+          setFilterOptions({
+            api_keys: [],
+            api_key_names: {},
+            models: [],
+            channels: [],
+          });
+          setStats(DEFAULT_LOG_STATS);
+          setCapability("unsupported");
+          setLastUpdatedAt(Date.now());
+        } else {
+          notify({ type: "error", message });
+        }
       } finally {
         fetchInFlightRef.current = false;
         setLoading(false);
@@ -255,6 +277,8 @@ export function RequestLogsPage() {
     clearOptions.clear_body_content ||
     clearOptions.clear_detail_content ||
     clearOptions.clear_request_records;
+  const showEmptyCompatibilityNotice =
+    capability === "ok" && !loading && lastUpdatedAt !== null && totalCount === 0;
 
   const handleClearDatabaseLogs = useCallback(async () => {
     setClearingLogs(true);
@@ -298,7 +322,7 @@ export function RequestLogsPage() {
               variant="danger"
               size="sm"
               onClick={handleOpenClearDialog}
-              disabled={loading || clearingLogs}
+              disabled={loading || clearingLogs || capability === "unsupported"}
             >
               {t("request_logs.clear_database_logs")}
             </Button>
@@ -322,6 +346,27 @@ export function RequestLogsPage() {
 
         {/* 筛选 + 统计 */}
         <div className="border-t border-slate-100 px-5 py-3 dark:border-neutral-800/60">
+          {capability === "unsupported" ? (
+            <div className="mb-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="font-medium">{t("request_logs.unsupported_title")}</p>
+                <p className="mt-1 text-amber-800/80 dark:text-amber-100/75">
+                  {t("request_logs.unsupported_desc")}
+                </p>
+              </div>
+            </div>
+          ) : showEmptyCompatibilityNotice ? (
+            <div className="mb-3 flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-400/25 dark:bg-sky-400/10 dark:text-sky-100">
+              <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="font-medium">{t("request_logs.empty_notice_title")}</p>
+                <p className="mt-1 text-sky-800/80 dark:text-sky-100/75">
+                  {t("request_logs.empty_notice_desc")}
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
             <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
               <SearchableSelect

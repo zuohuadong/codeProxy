@@ -32,7 +32,9 @@ const mocks = vi.hoisted(() => ({
   })),
   fetchQuota: vi.fn((_provider?: unknown, _file?: { name?: string }) => new Promise(() => {})),
   deleteFile: vi.fn(async () => ({})),
+  setStatus: vi.fn(async (_name: string, disabled: boolean) => ({ status: "ok", disabled })),
   downloadText: vi.fn(async () => "{}"),
+  downloadFile: vi.fn(async () => ({})),
   patchFields: vi.fn(async () => ({})),
   getModelsForAuthFile: vi.fn(async () => [{ id: "live-only", owned_by: "runtime" }]),
   getModelConfigs: vi.fn(async () => [
@@ -55,7 +57,9 @@ vi.mock("@/lib/http/apis", async (importOriginal) => {
       ...mod.authFilesApi,
       list: mocks.list,
       deleteFile: mocks.deleteFile,
+      setStatus: mocks.setStatus,
       downloadText: mocks.downloadText,
+      downloadFile: mocks.downloadFile,
       patchFields: mocks.patchFields,
       getModelsForAuthFile: mocks.getModelsForAuthFile,
       upload: mocks.upload,
@@ -145,8 +149,15 @@ describe("AuthFilesPage files table", () => {
     mocks.fetchQuota.mockImplementation(() => new Promise(() => {}));
     mocks.deleteFile.mockReset();
     mocks.deleteFile.mockImplementation(async () => ({}));
+    mocks.setStatus.mockReset();
+    mocks.setStatus.mockImplementation(async (_name: string, disabled: boolean) => ({
+      status: "ok",
+      disabled,
+    }));
     mocks.downloadText.mockReset();
     mocks.downloadText.mockImplementation(async () => "{}");
+    mocks.downloadFile.mockReset();
+    mocks.downloadFile.mockImplementation(async () => ({}));
     mocks.patchFields.mockReset();
     mocks.patchFields.mockImplementation(async () => ({}));
     mocks.getModelsForAuthFile.mockReset();
@@ -198,6 +209,140 @@ describe("AuthFilesPage files table", () => {
     expect(screen.getByRole("button", { name: "Select current page" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete All" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Enable/Disable" })).toBeInTheDocument();
+  });
+
+  test("filters problematic and disabled auth files from the toolbar", async () => {
+    const now = Date.now();
+    mocks.list.mockImplementation(async () => ({
+      files: [
+        {
+          name: "healthy.json",
+          label: "Healthy Account",
+          account_type: "oauth",
+          type: "codex",
+          size: 1024,
+          modified: now,
+          disabled: false,
+        },
+        {
+          name: "problem.json",
+          label: "Problem Account",
+          account_type: "oauth",
+          type: "codex",
+          size: 1024,
+          modified: now,
+          disabled: false,
+          restrictions: [
+            {
+              scope: "auth",
+              http_status: 401,
+              status_message: "unauthorized",
+              next_retry_after: new Date(now + 60_000).toISOString(),
+            },
+          ],
+        },
+        {
+          name: "disabled.json",
+          label: "Disabled Account",
+          account_type: "oauth",
+          type: "codex",
+          size: 1024,
+          modified: now,
+          disabled: true,
+        },
+        {
+          name: "transient.json",
+          label: "Transient Model Error",
+          account_type: "oauth",
+          type: "codex",
+          size: 1024,
+          modified: now,
+          disabled: false,
+          restrictions: [
+            {
+              scope: "model",
+              model: "gpt-5.4",
+              http_status: 500,
+              status_message: "context canceled",
+            },
+          ],
+        },
+      ],
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/auth-files"]}>
+        <ThemeProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/auth-files" element={<AuthFilesPage />} />
+            </Routes>
+          </ToastProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Healthy Account")).toBeInTheDocument();
+    expect(screen.getByText("Problem Account")).toBeInTheDocument();
+    expect(screen.getByText("Disabled Account")).toBeInTheDocument();
+    expect(screen.getByText("Transient Model Error")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Problem credentials only" }));
+
+    expect(await screen.findByText("Problem Account")).toBeInTheDocument();
+    expect(screen.queryByText("Healthy Account")).not.toBeInTheDocument();
+    expect(screen.queryByText("Disabled Account")).not.toBeInTheDocument();
+    expect(screen.queryByText("Transient Model Error")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Problem credentials only" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Disabled credentials only" }));
+
+    expect(await screen.findByText("Disabled Account")).toBeInTheDocument();
+    expect(screen.queryByText("Healthy Account")).not.toBeInTheDocument();
+    expect(screen.queryByText("Problem Account")).not.toBeInTheDocument();
+    expect(screen.queryByText("Transient Model Error")).not.toBeInTheDocument();
+  });
+
+  test("supports batch enable disable and download for selected auth files", async () => {
+    mocks.list.mockImplementation(async () => ({
+      files: [
+        {
+          name: "codex.json",
+          label: "Codex Account",
+          account_type: "oauth",
+          type: "codex",
+          size: 1024,
+          modified: Date.now(),
+          disabled: false,
+        },
+      ],
+    }));
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <MemoryRouter initialEntries={["/auth-files"]}>
+        <ThemeProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/auth-files" element={<AuthFilesPage />} />
+            </Routes>
+          </ToastProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Codex Account")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Select Codex Account"));
+    fireEvent.click(screen.getByRole("button", { name: "Disable" }));
+
+    await waitFor(() => expect(mocks.setStatus).toHaveBeenCalledWith("codex.json", true));
+
+    fireEvent.click(screen.getByRole("button", { name: "Enable" }));
+    await waitFor(() => expect(mocks.setStatus).toHaveBeenCalledWith("codex.json", false));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Download" })[0]);
+    await waitFor(() => expect(mocks.downloadFile).toHaveBeenCalledWith("codex.json"));
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("1 full auth files"));
   });
 
   test("loads initial usage stats only for listed auth files", async () => {

@@ -148,6 +148,40 @@ describe("RequestLogsPage", () => {
     expect(await screen.findByText("No Data")).toBeInTheDocument();
   });
 
+  test("shows a backend compatibility notice when structured request logs are unsupported", async () => {
+    await i18n.changeLanguage("en");
+    mocks.getUsageLogs.mockRejectedValue(new Error("Request failed (404)"));
+
+    render(
+      <ThemeProvider>
+        <ToastProvider>
+          <RequestLogsPage />
+        </ToastProvider>
+      </ThemeProvider>,
+    );
+
+    expect(
+      await screen.findByText("Structured request logs are not available on this backend"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Native v7 builds may only expose file logs/i)).toBeInTheDocument();
+  });
+
+  test("explains empty structured logs instead of silently showing a blank table", async () => {
+    await i18n.changeLanguage("en");
+    mocks.getUsageLogs.mockResolvedValue(emptyLogsResponse);
+
+    render(
+      <ThemeProvider>
+        <ToastProvider>
+          <RequestLogsPage />
+        </ToastProvider>
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByText("No structured request logs were returned")).toBeInTheDocument();
+    expect(screen.getByText(/confirm that Request Logs are enabled/i)).toBeInTheDocument();
+  });
+
   test("renders request logs table through the shared VirtualTable wrapper", async () => {
     await i18n.changeLanguage("zh-CN");
 
