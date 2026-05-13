@@ -250,6 +250,47 @@ describe("ProvidersPage openai tab", () => {
     });
   });
 
+  test("saves an OpenAI Compatible provider without API key entries", async () => {
+    const user = userEvent.setup();
+    const provider = {
+      name: "Keyless OpenAI",
+      baseUrl: "https://keyless.example.com/v1",
+      models: [{ name: "gpt-compatible" }],
+    } as any;
+    mocks.getOpenAIProviders.mockImplementation(async () => [provider] as any);
+
+    render(
+      <MemoryRouter initialEntries={["/ai-providers/openai"]}>
+        <ThemeProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/ai-providers/*" element={<ProvidersPage />} />
+            </Routes>
+          </ToastProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Keyless OpenAI")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Edit/ }));
+    expect(await screen.findByText("Edit OpenAI-compatible provider")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+
+    await waitFor(() => {
+      expect(mocks.saveOpenAIProviders).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: "Keyless OpenAI",
+          baseUrl: "https://keyless.example.com/v1",
+          models: [{ name: "gpt-compatible" }],
+        }),
+      ]);
+    });
+    expect(mocks.saveOpenAIProviders.mock.calls[0]?.[0]?.[0]).not.toHaveProperty(
+      "apiKeyEntries",
+    );
+  });
+
   test("toggles an OpenAI Compatible provider without removing keys", async () => {
     const user = userEvent.setup();
     const provider = {

@@ -65,10 +65,15 @@ function buildWsUrl(apiBase: string, managementKey: string): string | null {
   }
 }
 
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && /\b404\b|not found/i.test(error.message);
+}
+
 export function useSystemStats(interval = 3): {
   stats: SystemStats | null;
   connected: boolean;
   error: string | null;
+  unsupported: boolean;
 } {
   const {
     state: { apiBase, managementKey },
@@ -76,6 +81,7 @@ export function useSystemStats(interval = 3): {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const httpFallbackTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -85,21 +91,37 @@ export function useSystemStats(interval = 3): {
   const fetchHttp = useCallback(async () => {
     try {
       const data = await apiClient.get<SystemStats>("/system-stats");
-      if (mountedRef.current) setStats(data);
-    } catch {
-      // silently ignore
+      if (mountedRef.current) {
+        setStats(data);
+        setUnsupported(false);
+      }
+      return true;
+    } catch (err: unknown) {
+      if (isNotFoundError(err)) {
+        if (mountedRef.current) {
+          setConnected(false);
+          setError(null);
+          setUnsupported(true);
+        }
+        return false;
+      }
+      return true;
     }
   }, []);
 
   const startHttpFallback = useCallback(() => {
     // Only start if WebSocket is not connected
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
-    void fetchHttp();
-    httpFallbackTimer.current = setInterval(
-      () => void fetchHttp(),
-      interval * 1000,
-    ) as unknown as ReturnType<typeof setTimeout>;
-  }, [fetchHttp, interval]);
+    if (unsupported) return;
+    void fetchHttp().then((supported) => {
+      if (!supported || !mountedRef.current || wsRef.current?.readyState === WebSocket.OPEN) return;
+      if (httpFallbackTimer.current) return;
+      httpFallbackTimer.current = setInterval(
+        () => void fetchHttp(),
+        interval * 1000,
+      ) as unknown as ReturnType<typeof setTimeout>;
+    });
+  }, [fetchHttp, interval, unsupported]);
 
   const stopHttpFallback = useCallback(() => {
     if (httpFallbackTimer.current) {
@@ -110,6 +132,8 @@ export function useSystemStats(interval = 3): {
 
   // --- WebSocket connection ---
   const connect = useCallback(() => {
+    if (unsupported) return;
+
     const url = buildWsUrl(apiBase, managementKey);
     if (!url) {
       // No WebSocket URL — use HTTP polling instead
@@ -117,49 +141,52 @@ export function useSystemStats(interval = 3): {
       return;
     }
 
-    try {
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
+    void fetchHttp().then((supported) => {
+      if (!supported || !mountedRef.current) return;
+      try {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
 
-      ws.onopen = () => {
-        if (!mountedRef.current) return;
-        setConnected(true);
-        setError(null);
-        stopHttpFallback();
-        ws.send(JSON.stringify({ interval }));
-      };
-
-      ws.onmessage = (ev) => {
-        if (!mountedRef.current) return;
-        try {
-          const data = JSON.parse(ev.data as string) as SystemStats;
-          setStats(data);
-        } catch {
-          // ignore
-        }
-      };
-
-      ws.onerror = () => {
-        if (!mountedRef.current) return;
-        setError("WebSocket connection error");
-      };
-
-      ws.onclose = () => {
-        if (!mountedRef.current) return;
-        setConnected(false);
-        wsRef.current = null;
-        // Fall back to HTTP, then retry WebSocket in 5s
-        startHttpFallback();
-        reconnectTimer.current = setTimeout(() => {
+        ws.onopen = () => {
+          if (!mountedRef.current) return;
+          setConnected(true);
+          setError(null);
           stopHttpFallback();
-          connect();
-        }, 5000);
-      };
-    } catch {
-      // WebSocket creation failed, use HTTP polling
-      startHttpFallback();
-    }
-  }, [apiBase, managementKey, interval, startHttpFallback, stopHttpFallback]);
+          ws.send(JSON.stringify({ interval }));
+        };
+
+        ws.onmessage = (ev) => {
+          if (!mountedRef.current) return;
+          try {
+            const data = JSON.parse(ev.data as string) as SystemStats;
+            setStats(data);
+          } catch {
+            // ignore
+          }
+        };
+
+        ws.onerror = () => {
+          if (!mountedRef.current) return;
+          setError("WebSocket connection error");
+        };
+
+        ws.onclose = () => {
+          if (!mountedRef.current) return;
+          setConnected(false);
+          wsRef.current = null;
+          // Fall back to HTTP, then retry WebSocket in 5s
+          startHttpFallback();
+          reconnectTimer.current = setTimeout(() => {
+            stopHttpFallback();
+            connect();
+          }, 5000);
+        };
+      } catch {
+        // WebSocket creation failed, use HTTP polling
+        startHttpFallback();
+      }
+    });
+  }, [apiBase, managementKey, interval, fetchHttp, startHttpFallback, stopHttpFallback, unsupported]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -175,5 +202,5 @@ export function useSystemStats(interval = 3): {
     };
   }, [connect, stopHttpFallback]);
 
-  return { stats, connected, error };
+  return { stats, connected, error, unsupported };
 }
