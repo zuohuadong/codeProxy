@@ -7,6 +7,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { TableCellOverflowTooltip } from "@/modules/ui/TableCellOverflowTooltip";
@@ -256,54 +257,38 @@ export function VirtualTable<T>({
     }
   }, [updateScrollMetrics]);
 
-  const handleWheel = useCallback(
-    (e: WheelEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
-
-      const canScrollY = el.scrollHeight > el.clientHeight + 1;
-      const canScrollX = el.scrollWidth > el.clientWidth + 1;
-      const wantsY = e.deltaY !== 0;
-      const wantsX = e.deltaX !== 0;
-
-      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth);
-      const atTop = el.scrollTop <= 0;
-      const atBottom = el.scrollTop >= maxTop - 1;
-      const atLeft = el.scrollLeft <= 0;
-      const atRight = el.scrollLeft >= maxLeft - 1;
-
-      const canMoveY =
-        wantsY && canScrollY && ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom));
-      const canMoveX =
-        wantsX && canScrollX && ((e.deltaX < 0 && !atLeft) || (e.deltaX > 0 && !atRight));
-
-      if (canMoveY || canMoveX) {
-        e.stopPropagation();
-        return;
-      }
-
-      if (wantsY || wantsX) {
-        if (allowWheelPropagationAtBoundary) return;
-        if (e.cancelable) e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    [allowWheelPropagationAtBoundary],
-  );
-
-  useEffect(() => {
-    if (naturalFlow) return;
-
+  const onWheelCapture = useCallback((e: ReactWheelEvent<HTMLDivElement>) => {
     const el = containerRef.current;
     if (!el) return;
 
-    el.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+    const canScrollY = el.scrollHeight > el.clientHeight + 1;
+    const canScrollX = el.scrollWidth > el.clientWidth + 1;
+    const wantsY = e.deltaY !== 0;
+    const wantsX = e.deltaX !== 0;
 
-    return () => {
-      el.removeEventListener("wheel", handleWheel, { capture: true });
-    };
-  }, [handleWheel, naturalFlow]);
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+    const atTop = el.scrollTop <= 0;
+    const atBottom = el.scrollTop >= maxTop - 1;
+    const atLeft = el.scrollLeft <= 0;
+    const atRight = el.scrollLeft >= maxLeft - 1;
+
+    const canMoveY =
+      wantsY && canScrollY && ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atBottom));
+    const canMoveX =
+      wantsX && canScrollX && ((e.deltaX < 0 && !atLeft) || (e.deltaX > 0 && !atRight));
+
+    if (canMoveY || canMoveX) {
+      e.stopPropagation();
+      return;
+    }
+
+    if (wantsY || wantsX) {
+      if (allowWheelPropagationAtBoundary) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, [allowWheelPropagationAtBoundary]);
 
   const dragRef = useRef<null | {
     axis: "x" | "y";
@@ -582,6 +567,7 @@ export function VirtualTable<T>({
       <div
         ref={containerRef}
         onScroll={naturalFlow ? undefined : onScroll}
+        onWheelCapture={naturalFlow ? undefined : onWheelCapture}
         tabIndex={naturalFlow ? undefined : 0}
         data-scrollbar-visibility={naturalFlow ? undefined : "hover"}
         className={

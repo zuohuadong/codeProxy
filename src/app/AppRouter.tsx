@@ -5,6 +5,7 @@ import { ProtectedRoute } from "@/app/guards/ProtectedRoute";
 import { DashboardLayout } from "@/modules/layout/DashboardLayout";
 import { ThemeProvider } from "@/modules/ui/ThemeProvider";
 import { ToastProvider } from "@/modules/ui/ToastProvider";
+import { AutoUpdatePrompt } from "@/modules/update/AutoUpdatePrompt";
 
 // Lazy-loaded page components for route-level code splitting
 const LoginPage = lazy(() =>
@@ -87,6 +88,7 @@ export function AppRouter() {
                 path="*"
                 element={
                   <AuthProvider>
+                    <AutoUpdatePrompt />
                     <Suspense>
                       <Routes>
                         <Route path="/login" element={<LoginPage />} />

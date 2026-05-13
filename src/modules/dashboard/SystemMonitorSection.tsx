@@ -469,34 +469,13 @@ function SkeletonLayout() {
 export function SystemMonitorSection({
   stats,
   connected = false,
-  unsupported = false,
   apiKeyCount = 0,
 }: {
   stats?: SystemStats | null;
   connected?: boolean;
-  unsupported?: boolean;
   apiKeyCount?: number;
 }) {
   const { t } = useTranslation();
-
-  if (unsupported) {
-    return (
-      <Card
-        title={t("system_monitor.title")}
-        className={PANEL_SURFACE}
-        actions={
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span className="inline-block h-2 w-2 rounded-full bg-slate-300 dark:bg-neutral-600" />
-            {t("system_monitor.unsupported")}
-          </div>
-        }
-      >
-        <div className="py-8 text-sm text-slate-500 dark:text-white/55">
-          {t("system_monitor.unsupported_desc")}
-        </div>
-      </Card>
-    );
-  }
 
   if (!stats) {
     return (

@@ -20,6 +20,7 @@ import { Button } from "@/modules/ui/Button";
 import { Card } from "@/modules/ui/Card";
 import { TextInput } from "@/modules/ui/Input";
 import { useToast } from "@/modules/ui/ToastProvider";
+import { UpdateDetailsCard } from "@/modules/update/UpdateDetailsCard";
 import { loadModelPathAvailability } from "@/modules/models/modelAvailability";
 import { HoverTooltip } from "@/modules/ui/Tooltip";
 
@@ -319,7 +320,13 @@ function ModelTag({ id }: { id: string }) {
 
 const _AUTO_REFRESH_INTERVAL = 30_000;
 
-export function SystemPage() {
+export function SystemPage({
+  updateHeartbeatIntervalMs,
+  updateHeartbeatTimeoutMs,
+}: {
+  updateHeartbeatIntervalMs?: number;
+  updateHeartbeatTimeoutMs?: number;
+} = {}) {
   const { t } = useTranslation();
   const auth = useAuth();
 
@@ -435,6 +442,11 @@ export function SystemPage() {
           link
         />
       </div>
+
+      <UpdateDetailsCard
+        heartbeatIntervalMs={updateHeartbeatIntervalMs}
+        heartbeatTimeoutMs={updateHeartbeatTimeoutMs}
+      />
 
       {/* ── Model List ── */}
       <Card padding="none" className="overflow-hidden" bodyClassName="mt-0">
