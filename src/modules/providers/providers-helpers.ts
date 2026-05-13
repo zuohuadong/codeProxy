@@ -189,6 +189,7 @@ export type OpenAIDraft = {
   disabled: boolean;
   baseUrl: string;
   prefix: string;
+  identityFingerprint: string;
   headersEntries: KeyValueEntry[];
   priorityText: string;
   testModel: string;
@@ -208,6 +209,7 @@ export const buildOpenAIDraft = (input?: OpenAIProvider | null): OpenAIDraft => 
   disabled: input?.disabled === true,
   baseUrl: input?.baseUrl ?? "",
   prefix: input?.prefix ?? "",
+  identityFingerprint: input?.identityFingerprint ?? "",
   headersEntries: recordToKeyValueEntries(input?.headers),
   priorityText: input?.priority !== undefined ? String(input.priority) : "",
   testModel: input?.testModel ?? "",

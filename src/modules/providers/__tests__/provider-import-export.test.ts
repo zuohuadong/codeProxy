@@ -34,10 +34,7 @@ describe("provider import/export helpers", () => {
           "api-key": "sk-b",
           "excluded-models": ["claude-3", "gpt-4"],
           headers: { A: "1", Z: "2" },
-          models: [
-            { alias: "sonnet", name: "claude-3" },
-            { name: "gpt-4" },
-          ],
+          models: [{ alias: "sonnet", name: "claude-3" }, { name: "gpt-4" }],
           name: "Beta",
         },
       ],
@@ -67,6 +64,7 @@ describe("provider import/export helpers", () => {
           {
             name: " OpenAI Main ",
             "base-url": "https://example.com/v1/",
+            "identity-fingerprint": " Codex ",
             "api-key-entries": [
               { "api-key": "sk-old" },
               { "api-key": "sk-old", "proxy-url": "" },
@@ -103,10 +101,8 @@ describe("provider import/export helpers", () => {
       {
         name: "OpenAI Main",
         baseUrl: "https://example.com/v1",
-        apiKeyEntries: [
-          { apiKey: "sk-new", headers: { A: "1", Z: "2" } },
-          { apiKey: "sk-old" },
-        ],
+        identityFingerprint: "codex",
+        apiKeyEntries: [{ apiKey: "sk-new", headers: { A: "1", Z: "2" } }, { apiKey: "sk-old" }],
         models: [{ name: "gpt-4.1" }],
       },
     ]);

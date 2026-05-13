@@ -39,6 +39,7 @@ describe("provider proxy id serialization", () => {
         name: "OpenAI",
         disabled: true,
         baseUrl: "https://api.example.com/v1",
+        identityFingerprint: "codex",
         apiKeyEntries: [
           {
             apiKey: "sk-openai",
@@ -51,6 +52,7 @@ describe("provider proxy id serialization", () => {
     ).toEqual(
       expect.objectContaining({
         disabled: true,
+        "identity-fingerprint": "codex",
         "api-key-entries": [
           expect.objectContaining({
             disabled: true,

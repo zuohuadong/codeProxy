@@ -54,6 +54,7 @@ describe("providers helpers", () => {
       disabled: true,
       baseUrl: "https://example.com/v1",
       prefix: "oa",
+      identityFingerprint: "codex",
       priority: 5,
       testModel: "gpt-4.1",
       headers: { "x-provider": "openai" },
@@ -72,6 +73,7 @@ describe("providers helpers", () => {
     expect(draft.disabled).toBe(true);
     expect(draft.baseUrl).toBe("https://example.com/v1");
     expect(draft.priorityText).toBe("5");
+    expect(draft.identityFingerprint).toBe("codex");
     expect(draft.headersEntries).toEqual([
       { id: expect.any(String), key: "x-provider", value: "openai" },
     ]);

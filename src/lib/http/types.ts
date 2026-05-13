@@ -185,6 +185,7 @@ export interface OpenAIProvider {
   disabled?: boolean;
   baseUrl?: string;
   prefix?: string;
+  identityFingerprint?: string;
   headers?: Record<string, string>;
   models?: ProviderModel[];
   apiKeyEntries?: ProviderApiKeyEntry[];

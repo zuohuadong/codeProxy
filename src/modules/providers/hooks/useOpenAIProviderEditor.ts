@@ -111,6 +111,9 @@ export function useOpenAIProviderEditor({
       ...(openaiDraft.disabled ? { disabled: true } : {}),
       baseUrl,
       ...(openaiDraft.prefix.trim() ? { prefix: openaiDraft.prefix.trim() } : {}),
+      ...(openaiDraft.identityFingerprint.trim()
+        ? { identityFingerprint: openaiDraft.identityFingerprint.trim() }
+        : {}),
       ...(headers ? { headers } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(openaiDraft.testModel.trim() ? { testModel: openaiDraft.testModel.trim() } : {}),
