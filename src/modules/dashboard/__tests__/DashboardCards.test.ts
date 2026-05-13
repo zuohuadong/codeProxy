@@ -18,12 +18,14 @@ describe("dashboard card composition", () => {
     expect(source).toContain("ChartLegend");
     expect(source).toContain("useInterval");
     expect(source).toContain("summary?.trends");
-    expect(source).toContain("const { stats, connected } = useSystemStats(5)");
+    expect(source).toContain(
+      "const { stats, connected, unsupported: systemStatsUnsupported } = useSystemStats(5)",
+    );
     expect(source).toContain("rpm={stats?.total_rpm ?? 0}");
     expect(source).toContain("tpm={stats?.total_tpm ?? 0}");
     expect(source).toContain("meta.generated_at");
     expect(source).toContain('<EChart option={option} className="h-10" overflowVisible />');
-    expect(source).toContain("}, 5000);");
+    expect(source).toContain("}, summaryUnsupported ? null : 5000);");
     expect(source).not.toContain('replaceMerge="series"');
     expect(source).not.toContain('from "@/modules/monitor/MonitorPagePieces"');
     expect(source).not.toContain("<KpiCard");
@@ -46,6 +48,7 @@ describe("dashboard card composition", () => {
     expect(source).toContain("apiKeyCount");
     expect(source).toContain("stats?: SystemStats | null");
     expect(source).toContain("connected?: boolean");
+    expect(source).toContain("unsupported?: boolean");
     expect(source).not.toContain("useSystemStats(3)");
     expect(source).not.toContain("ConcurrencyCard");
     expect(source).not.toContain('className="rounded-2xl border border-slate-200 bg-white/50');
