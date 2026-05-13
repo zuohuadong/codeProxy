@@ -10,6 +10,7 @@ import {
   normalizeApiKeyEntries,
   normalizeExcludedModels,
   normalizeHeaders,
+  normalizeIdentityFingerprint,
   normalizeModels,
   normalizeString,
   serializeBedrockKey,
@@ -65,7 +66,9 @@ const sortRecord = (value?: Record<string, string>) => {
 };
 
 const sortExcludedModels = (value: unknown) =>
-  normalizeExcludedModels(value)?.slice().sort((left, right) => left.localeCompare(right));
+  normalizeExcludedModels(value)
+    ?.slice()
+    .sort((left, right) => left.localeCompare(right));
 
 const normalizeModelList = (
   value: unknown,
@@ -204,7 +207,9 @@ const normalizeBedrockItem = (
       ...(normalizeString(value.name) ? { name: normalizeString(value.name)! } : {}),
       ...(normalizeString(value.prefix) ? { prefix: normalizeString(value.prefix)! } : {}),
       ...(normalizeString(value.region) ? { region: normalizeString(value.region)! } : {}),
-      ...((value["force-global"] === true || value.forceGlobal === true) ? { forceGlobal: true } : {}),
+      ...(value["force-global"] === true || value.forceGlobal === true
+        ? { forceGlobal: true }
+        : {}),
       ...(normalizeString(value["base-url"] ?? value.baseUrl)
         ? { baseUrl: normalizeString(value["base-url"] ?? value.baseUrl)! }
         : {}),
@@ -220,11 +225,10 @@ const normalizeBedrockItem = (
         ? { excludedModels: sortExcludedModels(value["excluded-models"] ?? value.excludedModels) }
         : {}),
       ...(authMode === "sigv4" && accessKeyId ? { accessKeyId } : {}),
-      ...(authMode === "sigv4" && normalizeString(value["secret-access-key"] ?? value.secretAccessKey)
+      ...(authMode === "sigv4" &&
+      normalizeString(value["secret-access-key"] ?? value.secretAccessKey)
         ? {
-            secretAccessKey: normalizeString(
-              value["secret-access-key"] ?? value.secretAccessKey,
-            )!,
+            secretAccessKey: normalizeString(value["secret-access-key"] ?? value.secretAccessKey)!,
           }
         : {}),
       ...(authMode === "sigv4" && normalizeString(value["session-token"] ?? value.sessionToken)
@@ -242,6 +246,9 @@ const normalizeOpenAIItem = (
   const name = normalizeString(value.name) ?? "";
   if (!name) return { item: null, duplicateCount: 0 };
   const headers = sortRecord(normalizeHeaders(value.headers));
+  const identityFingerprint = normalizeIdentityFingerprint(
+    value["identity-fingerprint"] ?? value.identityFingerprint,
+  );
   const { models, duplicateCount: modelDuplicates } = normalizeModelList(value.models);
   const { entries, duplicateCount: entryDuplicates } = normalizeEntryList(
     value["api-key-entries"] ?? value.apiKeyEntries,
@@ -255,6 +262,7 @@ const normalizeOpenAIItem = (
         ? { baseUrl: normalizeOpenAIBaseUrl(normalizeString(value["base-url"] ?? value.baseUrl)!) }
         : {}),
       ...(normalizeString(value.prefix) ? { prefix: normalizeString(value.prefix)! } : {}),
+      ...(identityFingerprint ? { identityFingerprint } : {}),
       ...(headers ? { headers } : {}),
       ...(models ? { models } : {}),
       ...(entries ? { apiKeyEntries: entries } : {}),
@@ -319,7 +327,9 @@ const normalizeItems = <K extends ProviderImportKind>(
 
   items.sort((left, right) => {
     const leftKey =
-      "apiKey" in left ? (left.name?.toLowerCase() ?? left.apiKey.toLowerCase()) : left.name.toLowerCase();
+      "apiKey" in left
+        ? (left.name?.toLowerCase() ?? left.apiKey.toLowerCase())
+        : left.name.toLowerCase();
     const rightKey =
       "apiKey" in right
         ? (right.name?.toLowerCase() ?? right.apiKey.toLowerCase())
@@ -357,7 +367,9 @@ const readEnvelope = (raw: unknown): { provider?: string; items: unknown } => {
 };
 
 const getItemKey = (kind: ProviderImportKind, item: CanonicalProviderItem) =>
-  kind === "openai" ? (item as OpenAIProvider).name.toLowerCase() : (item as ProviderSimpleConfig).apiKey.toLowerCase();
+  kind === "openai"
+    ? (item as OpenAIProvider).name.toLowerCase()
+    : (item as ProviderSimpleConfig).apiKey.toLowerCase();
 
 const getItemLabel = (kind: ProviderImportKind, item: CanonicalProviderItem) =>
   kind === "openai"
@@ -400,7 +412,10 @@ export const prepareProviderImport = <K extends ProviderImportKind>(
   const next = normalizeItems(kind, envelope.items);
   const current = normalizeItems(kind, currentItems);
   const currentMap = new Map(
-    current.items.map((item) => [getItemKey(kind, item), JSON.stringify(serializeItem(kind, item))]),
+    current.items.map((item) => [
+      getItemKey(kind, item),
+      JSON.stringify(serializeItem(kind, item)),
+    ]),
   );
   const nextMap = new Map(
     next.items.map((item) => [getItemKey(kind, item), JSON.stringify(serializeItem(kind, item))]),
@@ -448,10 +463,7 @@ export const prepareProviderImport = <K extends ProviderImportKind>(
       unchanged,
       duplicateEntriesRemoved: next.duplicateCount,
       hasChanges:
-        added > 0 ||
-        removed > 0 ||
-        changed > 0 ||
-        current.items.length !== next.items.length,
+        added > 0 || removed > 0 || changed > 0 || current.items.length !== next.items.length,
       addedLabels,
       removedLabels,
       changedLabels,

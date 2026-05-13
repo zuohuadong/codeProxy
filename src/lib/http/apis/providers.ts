@@ -11,6 +11,7 @@ import {
   normalizeApiKeyEntries,
   normalizeExcludedModels,
   normalizeHeaders,
+  normalizeIdentityFingerprint,
   normalizeModels,
   normalizeString,
   serializeGeminiKey,
@@ -314,6 +315,9 @@ export const providersApi = {
         const disabled = item.disabled === true;
         const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
         const prefix = normalizeString(item.prefix) ?? undefined;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          undefined;
         const headers = normalizeHeaders(item.headers);
         const models = normalizeModels(item.models);
         const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
@@ -326,6 +330,7 @@ export const providersApi = {
           ...(disabled ? { disabled } : {}),
           ...(baseUrl ? { baseUrl } : {}),
           ...(prefix ? { prefix } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
           ...(headers ? { headers } : {}),
           ...(models ? { models } : {}),
           ...(apiKeyEntries ? { apiKeyEntries } : {}),

@@ -118,6 +118,7 @@ describe("ProvidersPage openai tab", () => {
             name: "OpenAI Main",
             baseUrl: "https://example.com/v1",
             prefix: "oa",
+            identityFingerprint: "codex",
             testModel: "gpt-4.1",
             apiKeyEntries: [{ apiKey: "sk-openai-provider-1234567890", proxyUrl: "" }],
             models: [{ name: "gpt-4.1" }],
@@ -141,6 +142,7 @@ describe("ProvidersPage openai tab", () => {
 
     expect(await screen.findByText("OpenAI Main")).toBeInTheDocument();
     expect(screen.getByText("prefix: oa")).toBeInTheDocument();
+    expect(screen.getByText("Fingerprint: codex")).toBeInTheDocument();
     expect(screen.getByText("baseUrl: https://example.com/v1")).toBeInTheDocument();
     expect(screen.getByText(/sk-ope\*\*\*7890/)).toBeInTheDocument();
     expect(screen.getByText("80.0%")).toBeInTheDocument();
@@ -245,6 +247,45 @@ describe("ProvidersPage openai tab", () => {
               disabled: true,
             }),
           ],
+        }),
+      ]);
+    });
+  });
+
+  test("saves identity fingerprint from the OpenAI Compatible editor", async () => {
+    const user = userEvent.setup();
+    const provider = {
+      name: "OpenAI Main",
+      baseUrl: "https://example.com/v1",
+      apiKeyEntries: [{ apiKey: "sk-openai-provider-1234567890" }],
+    } as any;
+    mocks.getOpenAIProviders.mockImplementation(async () => [provider] as any);
+
+    render(
+      <MemoryRouter initialEntries={["/ai-providers/openai"]}>
+        <ThemeProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/ai-providers/*" element={<ProvidersPage />} />
+            </Routes>
+          </ToastProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("OpenAI Main")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Edit/ }));
+    expect(await screen.findByText("Edit OpenAI-compatible provider")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: /Identity fingerprint/i }));
+    await user.click(await screen.findByRole("option", { name: "Codex" }));
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+
+    await waitFor(() => {
+      expect(mocks.saveOpenAIProviders).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: "OpenAI Main",
+          identityFingerprint: "codex",
         }),
       ]);
     });

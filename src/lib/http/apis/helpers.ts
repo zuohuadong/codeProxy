@@ -85,6 +85,11 @@ export const normalizeExcludedModels = (value: unknown): string[] | undefined =>
 export const serializeHeaders = (headers?: Record<string, string>) =>
   headers && Object.keys(headers).length ? headers : undefined;
 
+export const normalizeIdentityFingerprint = (value: unknown): string | undefined => {
+  const normalized = normalizeString(value)?.toLowerCase();
+  return normalized === "codex" ? normalized : undefined;
+};
+
 export const serializeModels = (models?: ProviderModel[]) =>
   Array.isArray(models)
     ? models
@@ -212,6 +217,8 @@ export const serializeOpenAIProvider = (provider: OpenAIProvider) => {
   if (baseUrl) payload["base-url"] = baseUrl;
   const prefix = normalizeString(provider.prefix);
   if (prefix) payload.prefix = prefix;
+  const identityFingerprint = normalizeIdentityFingerprint(provider.identityFingerprint);
+  if (identityFingerprint) payload["identity-fingerprint"] = identityFingerprint;
   const headers = serializeHeaders(provider.headers);
   if (headers) payload.headers = headers;
   const models = serializeModels(provider.models);

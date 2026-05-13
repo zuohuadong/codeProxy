@@ -41,6 +41,7 @@ export interface OpenAIProviderConfig {
   name: string;
   prefix?: string;
   baseUrl: string;
+  identityFingerprint?: string;
   apiKeyEntries: ApiKeyEntry[];
   headers?: Record<string, string>;
   models?: ModelAlias[];

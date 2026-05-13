@@ -7,6 +7,7 @@ import { buildModelsEndpoint } from "@/modules/providers/providers-helpers";
 import { Button } from "@/modules/ui/Button";
 import { TextInput } from "@/modules/ui/Input";
 import { Modal } from "@/modules/ui/Modal";
+import { Select } from "@/modules/ui/Select";
 import { ToggleSwitch } from "@/modules/ui/ToggleSwitch";
 import { KeyValueInputList } from "@/modules/providers/KeyValueInputList";
 import { ModelInputList } from "@/modules/providers/ModelInputList";
@@ -53,6 +54,13 @@ export function OpenAIProviderModal({
   const { t } = useTranslation();
   const [discoverQuery, setDiscoverQuery] = useState("");
   const discoveredListRef = useRef<HTMLDivElement | null>(null);
+  const identityFingerprintOptions = useMemo(
+    () => [
+      { value: "", label: t("providers.identity_fingerprint_none") },
+      { value: "codex", label: t("providers.identity_fingerprint_codex") },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -155,7 +163,7 @@ export function OpenAIProviderModal({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
               {t("providers.prefix_optional")}
@@ -195,6 +203,22 @@ export function OpenAIProviderModal({
               }}
               placeholder={t("providers.test_model_placeholder")}
             />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {t("providers.identity_fingerprint_label")}
+            </p>
+            <Select
+              value={openaiDraft.identityFingerprint}
+              onChange={(value) =>
+                setOpenaiDraft((prev) => ({ ...prev, identityFingerprint: value }))
+              }
+              options={identityFingerprintOptions}
+              aria-label={t("providers.identity_fingerprint_label")}
+            />
+            <p className="text-xs text-slate-500 dark:text-white/55">
+              {t("providers.identity_fingerprint_hint")}
+            </p>
           </div>
         </div>
 
@@ -298,7 +322,9 @@ export function OpenAIProviderModal({
                       placeholder={t("providers.api_key_placeholder")}
                     />
                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-white/55">
-                      <span>{t("providers.show_masked_key", { key: maskApiKey(entry.apiKey) })}</span>
+                      <span>
+                        {t("providers.show_masked_key", { key: maskApiKey(entry.apiKey) })}
+                      </span>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -372,7 +398,12 @@ export function OpenAIProviderModal({
               {t("providers.models_label")}
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => void discoverModels()} disabled={discovering}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void discoverModels()}
+                disabled={discovering}
+              >
                 <RefreshCw size={14} className={discovering ? "animate-spin" : ""} />
                 {t("providers.fetch_models")}
               </Button>

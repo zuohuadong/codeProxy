@@ -107,6 +107,13 @@ export function OpenAIProvidersTab({
                       >
                         {providerEnabled ? t("providers.enabled") : t("providers.disabled")}
                       </span>
+                      {provider.identityFingerprint ? (
+                        <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-200">
+                          {t("providers.identity_fingerprint_badge", {
+                            value: provider.identityFingerprint,
+                          })}
+                        </span>
+                      ) : null}
                     </div>
                     {provider.prefix ? (
                       <p className="mt-1 truncate font-mono text-xs text-slate-700 dark:text-slate-200">
