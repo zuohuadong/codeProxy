@@ -93,6 +93,11 @@ export function useOpenAIProviderEditor({
       })
       .filter(Boolean) as OpenAIProvider["apiKeyEntries"];
 
+    if (!apiKeyEntries || apiKeyEntries.length === 0) {
+      setOpenaiDraftError(t("providers.key_entry_error"));
+      return null;
+    }
+
     const modelCommit = commitModelEntries(openaiDraft.modelEntries);
     if (modelCommit.error) {
       setOpenaiDraftError(modelCommit.error);
@@ -110,7 +115,7 @@ export function useOpenAIProviderEditor({
       ...(priority !== undefined ? { priority } : {}),
       ...(openaiDraft.testModel.trim() ? { testModel: openaiDraft.testModel.trim() } : {}),
       ...(modelCommit.models ? { models: modelCommit.models } : {}),
-      ...(apiKeyEntries?.length ? { apiKeyEntries } : {}),
+      apiKeyEntries,
     };
   }, [openaiDraft, t]);
 
