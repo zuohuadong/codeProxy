@@ -52,6 +52,10 @@ const formatCurrency = (value: number) => `$${value.toFixed(4)}`;
 const PANEL_SURFACE =
   "rounded-[18px] border border-slate-200/85 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.05)] dark:border-neutral-800 dark:bg-neutral-950/85 dark:shadow-[0_10px_26px_rgba(0,0,0,0.28)]";
 
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && /\b404\b|not found/i.test(error.message);
+}
+
 const formatThroughputTooltip = (params: any) => {
   const items = Array.isArray(params) ? params : [params];
   const title = items[0]?.axisValueLabel ?? "";
@@ -359,11 +363,12 @@ function ThroughputTrendChart({
 export function DashboardPage() {
   const { t } = useTranslation();
   const { notify } = useToast();
-  const { stats, connected } = useSystemStats(5);
+  const { stats, connected, unsupported: systemStatsUnsupported } = useSystemStats(5);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [range, setRange] = useState<DashboardRange>(7);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [summaryUnsupported, setSummaryUnsupported] = useState(false);
   const [throughputLegend, setThroughputLegend] = useState({ rpm: true, tpm: true });
 
   const refresh = useCallback(
@@ -375,10 +380,20 @@ export function DashboardPage() {
       try {
         const data = await usageApi.getDashboardSummary(days);
         setSummary(data);
+        setSummaryUnsupported(false);
       } catch (err: unknown) {
+        if (isNotFoundError(err)) {
+          const message = t("dashboard.unsupported_backend");
+          setSummary(null);
+          setSummaryUnsupported(true);
+          setError(message);
+          return;
+        }
         const message = err instanceof Error ? err.message : t("dashboard.load_failed");
         setError(message);
-        notify({ type: "error", message });
+        if (!silent) {
+          notify({ type: "error", message });
+        }
       } finally {
         if (!silent) {
           setLoading(false);
@@ -394,7 +409,7 @@ export function DashboardPage() {
 
   useInterval(() => {
     void refresh(range, true);
-  }, 5000);
+  }, summaryUnsupported ? null : 5000);
 
   const kpi = summary?.kpi;
   const trends = summary?.trends;
@@ -552,6 +567,7 @@ export function DashboardPage() {
       <SystemMonitorSection
         stats={stats}
         connected={connected}
+        unsupported={systemStatsUnsupported}
         apiKeyCount={summary?.counts.api_keys ?? 0}
       />
 

@@ -127,10 +127,6 @@ function setIntFromString(obj: Record<string, unknown>, key: string, value: unkn
   if (hasOwn(obj, key)) delete obj[key];
 }
 
-function normalizeAutoUpdateChannel(value: unknown): "main" | "dev" {
-  return typeof value === "string" && value.trim().toLowerCase() === "dev" ? "dev" : "main";
-}
-
 function parsePayloadParamValue(raw: unknown): { valueType: PayloadParamValueType; value: string } {
   if (typeof raw === "number") {
     return { valueType: "number", value: String(raw) };
@@ -461,7 +457,6 @@ export function useVisualConfig() {
       const routing = asRecord(parsed.routing);
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
-      const autoUpdate = asRecord(parsed["auto-update"]);
 
       const newValues: VisualConfigValues = {
         host: typeof parsed.host === "string" ? parsed.host : "",
@@ -493,12 +488,6 @@ export function useVisualConfig() {
         loggingToFile: Boolean(parsed["logging-to-file"]),
         logsMaxTotalSizeMb: String(parsed["logs-max-total-size-mb"] ?? ""),
         usageStatisticsEnabled: Boolean(parsed["usage-statistics-enabled"]),
-        autoUpdateEnabled: Boolean(autoUpdate?.enabled ?? true),
-        autoUpdateChannel: normalizeAutoUpdateChannel(autoUpdate?.channel),
-        autoUpdateDockerImage:
-          typeof autoUpdate?.["docker-image"] === "string" && autoUpdate["docker-image"].trim()
-            ? autoUpdate["docker-image"]
-            : DEFAULT_VISUAL_VALUES.autoUpdateDockerImage,
 
         proxyUrl: typeof parsed["proxy-url"] === "string" ? parsed["proxy-url"] : "",
         preferIPv4: Boolean(parsed["prefer-ipv4"]),
@@ -606,19 +595,6 @@ export function useVisualConfig() {
         setBoolean(parsed, "logging-to-file", values.loggingToFile);
         setIntFromString(parsed, "logs-max-total-size-mb", values.logsMaxTotalSizeMb);
         setBoolean(parsed, "usage-statistics-enabled", values.usageStatisticsEnabled);
-
-        if (
-          hasOwn(parsed, "auto-update") ||
-          !values.autoUpdateEnabled ||
-          values.autoUpdateChannel !== "main" ||
-          values.autoUpdateDockerImage.trim()
-        ) {
-          const autoUpdate = ensureRecord(parsed, "auto-update");
-          autoUpdate.enabled = values.autoUpdateEnabled;
-          autoUpdate.channel = values.autoUpdateChannel;
-          setString(autoUpdate, "docker-image", values.autoUpdateDockerImage);
-          deleteIfEmpty(parsed, "auto-update");
-        }
 
         setString(parsed, "proxy-url", values.proxyUrl);
         setBoolean(parsed, "prefer-ipv4", values.preferIPv4);

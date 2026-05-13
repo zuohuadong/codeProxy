@@ -5,7 +5,6 @@ import { configApi } from "@/lib/http/apis";
 import { Button } from "@/modules/ui/Button";
 import { Card } from "@/modules/ui/Card";
 import { TextInput } from "@/modules/ui/Input";
-import { Select } from "@/modules/ui/Select";
 import { ToggleSwitch } from "@/modules/ui/ToggleSwitch";
 import { useToast } from "@/modules/ui/ToastProvider";
 
@@ -46,11 +45,6 @@ const readNumber = (obj: Record<string, unknown> | null, ...keys: string[]): num
   return null;
 };
 
-const normalizeUpdateChannel = (value: string) => {
-  const channel = value.trim().toLowerCase();
-  return channel === "dev" ? channel : "main";
-};
-
 export function RuntimeConfigPanel() {
   const { t } = useTranslation();
   const { notify } = useToast();
@@ -67,8 +61,6 @@ export function RuntimeConfigPanel() {
   const [switchProjectEnabled, setSwitchProjectEnabled] = useState(false);
   const [switchPreviewModelEnabled, setSwitchPreviewModelEnabled] = useState(false);
   const [forceModelPrefixEnabled, setForceModelPrefixEnabled] = useState(false);
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
-  const [autoUpdateChannel, setAutoUpdateChannel] = useState("main");
 
   const [proxyUrl, setProxyUrl] = useState("");
   const [requestRetry, setRequestRetry] = useState("0");
@@ -85,15 +77,12 @@ export function RuntimeConfigPanel() {
   const loadRuntimeConfig = useCallback(async () => {
     setLoading(true);
     try {
-      const [config, logsLimit, forcePrefix, strategy, autoUpdate, autoUpdateChannelValue] =
-        await Promise.all([
-          configApi.getConfig(),
-          configApi.getLogsMaxTotalSizeMb().catch(() => 0),
-          configApi.getForceModelPrefix().catch(() => false),
-          configApi.getRoutingStrategy().catch(() => "round-robin"),
-          configApi.getAutoUpdateEnabled().catch(() => true),
-          configApi.getAutoUpdateChannel().catch(() => "main"),
-        ]);
+      const [config, logsLimit, forcePrefix, strategy] = await Promise.all([
+        configApi.getConfig(),
+        configApi.getLogsMaxTotalSizeMb().catch(() => 0),
+        configApi.getForceModelPrefix().catch(() => false),
+        configApi.getRoutingStrategy().catch(() => "round-robin"),
+      ]);
 
       const record = isRecord(config) ? (config as Record<string, unknown>) : null;
       setRawConfig(record);
@@ -117,12 +106,6 @@ export function RuntimeConfigPanel() {
       setLogsMaxTotalSizeMb(String(logsLimit ?? 0));
       setForceModelPrefixEnabled(Boolean(forcePrefix));
       setRoutingStrategy(typeof strategy === "string" ? strategy : "round-robin");
-      setAutoUpdateEnabled(Boolean(autoUpdate));
-      setAutoUpdateChannel(
-        normalizeUpdateChannel(
-          typeof autoUpdateChannelValue === "string" ? autoUpdateChannelValue : "main",
-        ),
-      );
 
       setBaselineText({
         proxyUrl: readString(record, "proxy-url", "proxyUrl"),
@@ -155,7 +138,6 @@ export function RuntimeConfigPanel() {
         if (key === "switchProject") await configApi.updateSwitchProject(next);
         if (key === "switchPreviewModel") await configApi.updateSwitchPreviewModel(next);
         if (key === "forceModelPrefix") await configApi.updateForceModelPrefix(next);
-        if (key === "autoUpdate") await configApi.updateAutoUpdateEnabled(next);
         notify({ type: "success", message: t("config_page.toast_updated") });
       } catch (err: unknown) {
         notify({
@@ -166,25 +148,6 @@ export function RuntimeConfigPanel() {
       }
     },
     [notify, t],
-  );
-
-  const updateAutoUpdateChannel = useCallback(
-    async (next: string) => {
-      const previous = autoUpdateChannel;
-      const normalized = normalizeUpdateChannel(next);
-      setAutoUpdateChannel(normalized);
-      try {
-        await configApi.updateAutoUpdateChannel(normalized);
-        notify({ type: "success", message: t("config_page.toast_updated") });
-      } catch (err: unknown) {
-        setAutoUpdateChannel(previous);
-        notify({
-          type: "error",
-          message: err instanceof Error ? err.message : t("config_page.toast_update_failed"),
-        });
-      }
-    },
-    [autoUpdateChannel, notify, t],
   );
 
   const runtimeTextDirty =
@@ -372,36 +335,6 @@ export function RuntimeConfigPanel() {
                 );
               }}
             />
-            <ToggleSwitch
-              label={t("config_page.auto_update")}
-              description={t("config_page.auto_update_desc")}
-              checked={autoUpdateEnabled}
-              onCheckedChange={(next) => {
-                setAutoUpdateEnabled(next);
-                void updateToggle("autoUpdate", next).catch(() =>
-                  setAutoUpdateEnabled((prev) => !prev),
-                );
-              }}
-            />
-            <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-neutral-800 dark:bg-neutral-950/50">
-              <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {t("config_page.auto_update_channel")}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-white/65">
-                  {t("config_page.auto_update_channel_desc")}
-                </p>
-              </div>
-              <Select
-                aria-label={t("config_page.auto_update_channel")}
-                value={autoUpdateChannel}
-                onChange={(value) => void updateAutoUpdateChannel(value)}
-                options={[
-                  { value: "main", label: t("config_page.auto_update_channel_main") },
-                  { value: "dev", label: t("config_page.auto_update_channel_dev") },
-                ]}
-              />
-            </div>
           </div>
 
           <Card

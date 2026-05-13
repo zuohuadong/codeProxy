@@ -83,32 +83,29 @@ API Key 数量较多时，原先只能在每个 API Key 的编辑弹窗里逐个
 
 移除 `/api-key-permissions` 路由、侧边栏菜单、新页面模块和新增 i18n；移除 `api-key-permission-profiles` 读写封装；将限额、系统提示词和权限选择器重新放回 `ApiKeyFormFields`；恢复 API Keys 页面内的权限选项加载逻辑。
 
-## 2026-04-16 · Docker 自动更新提示与确认流程
+## 2026-05-13 · 管理面板资源同步与后端升级解耦
 
 ### 背景
 
-CliRelay 后端新增 Docker-first 自动更新能力，需要前端在用户登录后自动检查新版本、展示 release notes，并允许用户从管理面板触发 Docker 更新。
+CliRelay 后端移除服务端 Docker 自升级能力，只保留管理面板资源同步链路。前端不再负责提示、确认或触发后端容器升级，避免面板与部署方式强耦合。
 
 ### 结论
 
-- 新增 `src/modules/update/AutoUpdatePrompt.tsx`，作为登录后全局提示组件。
-- 新增 `src/lib/http/apis/update.ts`，封装 `/update/check` 与 `/update/apply` 管理接口。
-- 配置页运行时开关新增 `auto-update.enabled` 的图形化开关。
-- 配置页运行时设置新增更新渠道选择，默认跟随 `main`，可切换到 `dev` 或 `auto`。
-- 登录后全局检查只发 Toast，不再弹出确认窗口；更新详情、release notes 和执行按钮集中在系统信息页。
+- 移除登录后全局升级提示、系统信息页升级卡片和升级详情弹窗。
+- 移除配置页中与后端 Docker 升级相关的运行时开关、分支选择和镜像仓库输入。
+- 系统信息页保留版本、管理端点和模型可用性展示。
+- 管理面板资源更新由 CliRelay 后端通过 `remote-management.panel-github-repository` 继续处理。
 
 ### 影响范围
 
-- `AppRouter` 在 `AuthProvider` 内挂载自动更新 Toast 提示。
-- `SystemPage` 挂载 `UpdateDetailsCard`，由用户点击按钮后加载更新详情并执行更新。
-- i18n 增加 `auto_update` 文案。
-- 新增 `src/modules/update/` 模块，需要后续维护时保持与后端 update API 字段一致。
+- `AppRouter` 不再挂载登录后升级提示。
+- `SystemPage` 不再渲染后端升级入口。
+- 配置页只保留仍由后端支持的运行时设置。
+- 删除升级相关 API 封装、组件、测试和 i18n 文案。
 
 ### 回滚策略（如适用）
 
-- 从 `AppRouter` 移除 `AutoUpdatePrompt` 挂载。
-- 删除 `src/modules/update/` 和 `src/lib/http/apis/update.ts`。
-- 从配置页移除 `auto-update.enabled` 开关，并保留 YAML 手动配置能力。
+- 若后端重新提供稳定的服务升级 API，再重新引入独立升级模块，并与部署方式、鉴权和失败恢复策略一起评审。
 
 ## 2026-02-22 · 引入历史兼容管理入口（多页面构建）
 
