@@ -23,6 +23,11 @@ export const normalizeString = (value: unknown): string | null => {
   return trimmed ? trimmed : null;
 };
 
+export const normalizeIdentityFingerprint = (value: unknown): string | undefined => {
+  const normalized = normalizeString(value)?.toLowerCase();
+  return normalized === "codex" ? normalized : undefined;
+};
+
 export const normalizeHeaders = (value: unknown): Record<string, string> | undefined => {
   if (!isRecord(value)) return undefined;
   const result: Record<string, string> = {};
@@ -51,11 +56,17 @@ export const normalizeModels = (value: unknown): ProviderModel[] | undefined => 
       const priority =
         typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
       const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+      const contextLengthRaw = item["context-length"] ?? item.contextLength;
+      const contextLength =
+        typeof contextLengthRaw === "number" && Number.isFinite(contextLengthRaw)
+          ? contextLengthRaw
+          : undefined;
       return {
         name,
         ...(alias ? { alias } : {}),
         ...(priority !== undefined ? { priority } : {}),
         ...(testModel ? { testModel } : {}),
+        ...(contextLength !== undefined ? { contextLength } : {}),
       };
     })
     .filter(Boolean) as ProviderModel[];
@@ -85,11 +96,6 @@ export const normalizeExcludedModels = (value: unknown): string[] | undefined =>
 export const serializeHeaders = (headers?: Record<string, string>) =>
   headers && Object.keys(headers).length ? headers : undefined;
 
-export const normalizeIdentityFingerprint = (value: unknown): string | undefined => {
-  const normalized = normalizeString(value)?.toLowerCase();
-  return normalized === "codex" ? normalized : undefined;
-};
-
 export const serializeModels = (models?: ProviderModel[]) =>
   Array.isArray(models)
     ? models
@@ -104,6 +110,13 @@ export const serializeModels = (models?: ProviderModel[]) =>
           }
           const testModel = normalizeString(model?.testModel);
           if (testModel) payload["test-model"] = testModel;
+          if (
+            typeof model?.contextLength === "number" &&
+            Number.isFinite(model.contextLength) &&
+            model.contextLength > 0
+          ) {
+            payload["context-length"] = model.contextLength;
+          }
           return payload;
         })
         .filter(Boolean)
@@ -217,8 +230,6 @@ export const serializeOpenAIProvider = (provider: OpenAIProvider) => {
   if (baseUrl) payload["base-url"] = baseUrl;
   const prefix = normalizeString(provider.prefix);
   if (prefix) payload.prefix = prefix;
-  const identityFingerprint = normalizeIdentityFingerprint(provider.identityFingerprint);
-  if (identityFingerprint) payload["identity-fingerprint"] = identityFingerprint;
   const headers = serializeHeaders(provider.headers);
   if (headers) payload.headers = headers;
   const models = serializeModels(provider.models);
@@ -228,6 +239,9 @@ export const serializeOpenAIProvider = (provider: OpenAIProvider) => {
   }
   const testModel = normalizeString(provider.testModel);
   if (testModel) payload["test-model"] = testModel;
+  if (provider.disableCooling === true) payload["disable-cooling"] = true;
+  const identityFingerprint = normalizeIdentityFingerprint(provider.identityFingerprint);
+  if (identityFingerprint) payload["identity-fingerprint"] = identityFingerprint;
 
   if (Array.isArray(provider.apiKeyEntries) && provider.apiKeyEntries.length) {
     const entries = provider.apiKeyEntries

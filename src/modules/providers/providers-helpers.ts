@@ -112,6 +112,7 @@ export const buildModelEntries = (models?: ProviderModel[]): ModelEntryDraft[] =
     alias: model.alias ?? "",
     priorityText: model.priority !== undefined ? String(model.priority) : "",
     testModel: model.testModel ?? "",
+    contextLengthText: model.contextLength !== undefined ? String(model.contextLength) : "",
   }));
 };
 
@@ -136,12 +137,21 @@ export const commitModelEntries = (
     }
 
     const testModel = draft.testModel.trim();
+    const contextLengthText = draft.contextLengthText.trim();
+    const contextLength = contextLengthText !== "" ? Number(contextLengthText) : undefined;
+    if (
+      contextLength !== undefined &&
+      (!Number.isFinite(contextLength) || contextLength <= 0 || !Number.isInteger(contextLength))
+    ) {
+      return { error: `Model ${name} context length must be a positive integer` };
+    }
 
     models.push({
       name,
       ...(alias && alias !== name ? { alias } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(testModel ? { testModel } : {}),
+      ...(contextLength !== undefined ? { contextLength } : {}),
     });
   }
 
@@ -189,10 +199,11 @@ export type OpenAIDraft = {
   disabled: boolean;
   baseUrl: string;
   prefix: string;
-  identityFingerprint: string;
   headersEntries: KeyValueEntry[];
   priorityText: string;
   testModel: string;
+  disableCooling: boolean;
+  identityFingerprint: string;
   apiKeyEntries: {
     apiKey: string;
     disabled: boolean;
@@ -209,10 +220,11 @@ export const buildOpenAIDraft = (input?: OpenAIProvider | null): OpenAIDraft => 
   disabled: input?.disabled === true,
   baseUrl: input?.baseUrl ?? "",
   prefix: input?.prefix ?? "",
-  identityFingerprint: input?.identityFingerprint ?? "",
   headersEntries: recordToKeyValueEntries(input?.headers),
   priorityText: input?.priority !== undefined ? String(input.priority) : "",
   testModel: input?.testModel ?? "",
+  disableCooling: input?.disableCooling === true,
+  identityFingerprint: input?.identityFingerprint ?? "",
   apiKeyEntries:
     Array.isArray(input?.apiKeyEntries) && input.apiKeyEntries.length
       ? input.apiKeyEntries.map((entry, idx) => ({

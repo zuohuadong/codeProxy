@@ -10,7 +10,6 @@ import {
   normalizeApiKeyEntries,
   normalizeExcludedModels,
   normalizeHeaders,
-  normalizeIdentityFingerprint,
   normalizeModels,
   normalizeString,
   serializeBedrockKey,
@@ -22,6 +21,8 @@ import {
 import { normalizeOpenAIBaseUrl } from "@/modules/providers/providers-helpers";
 
 export type ProviderImportKind =
+  | "bigmodel-coding"
+  | "astron-code"
   | "gemini"
   | "claude"
   | "codex"
@@ -31,6 +32,8 @@ export type ProviderImportKind =
   | "openai";
 
 type ProviderItemsByKind = {
+  "bigmodel-coding": OpenAIProvider[];
+  "astron-code": OpenAIProvider[];
   gemini: ProviderSimpleConfig[];
   claude: ProviderSimpleConfig[];
   codex: ProviderSimpleConfig[];
@@ -94,6 +97,11 @@ const normalizeModelList = (
         ...(normalizeString(model.testModel)
           ? { testModel: normalizeString(model.testModel)! }
           : {}),
+        ...(typeof model.contextLength === "number" &&
+        Number.isFinite(model.contextLength) &&
+        model.contextLength > 0
+          ? { contextLength: model.contextLength }
+          : {}),
       };
       return normalized;
     })
@@ -150,7 +158,14 @@ const normalizeEntryList = (
 };
 
 const normalizeSimpleItem = (
-  kind: Exclude<ProviderImportKind, "bedrock" | "openai">,
+  kind:
+    | "bigmodel-coding"
+    | "astron-code"
+    | "gemini"
+    | "claude"
+    | "codex"
+    | "opencode-go"
+    | "vertex",
   value: unknown,
 ): { item: ProviderSimpleConfig | null; duplicateCount: number } => {
   if (!isRecord(value)) return { item: null, duplicateCount: 0 };
@@ -246,9 +261,6 @@ const normalizeOpenAIItem = (
   const name = normalizeString(value.name) ?? "";
   if (!name) return { item: null, duplicateCount: 0 };
   const headers = sortRecord(normalizeHeaders(value.headers));
-  const identityFingerprint = normalizeIdentityFingerprint(
-    value["identity-fingerprint"] ?? value.identityFingerprint,
-  );
   const { models, duplicateCount: modelDuplicates } = normalizeModelList(value.models);
   const { entries, duplicateCount: entryDuplicates } = normalizeEntryList(
     value["api-key-entries"] ?? value.apiKeyEntries,
@@ -262,7 +274,6 @@ const normalizeOpenAIItem = (
         ? { baseUrl: normalizeOpenAIBaseUrl(normalizeString(value["base-url"] ?? value.baseUrl)!) }
         : {}),
       ...(normalizeString(value.prefix) ? { prefix: normalizeString(value.prefix)! } : {}),
-      ...(identityFingerprint ? { identityFingerprint } : {}),
       ...(headers ? { headers } : {}),
       ...(models ? { models } : {}),
       ...(entries ? { apiKeyEntries: entries } : {}),
@@ -272,6 +283,7 @@ const normalizeOpenAIItem = (
       ...(normalizeString(value["test-model"] ?? value.testModel)
         ? { testModel: normalizeString(value["test-model"] ?? value.testModel)! }
         : {}),
+      ...(value["disable-cooling"] === true ? { disableCooling: true } : {}),
     },
     duplicateCount: modelDuplicates + entryDuplicates,
   };
@@ -287,10 +299,13 @@ const normalizeItems = <K extends ProviderImportKind>(
   let duplicateCount = 0;
 
   list.forEach((value) => {
-    if (kind === "openai") {
+    if (kind === "bigmodel-coding" || kind === "astron-code" || kind === "openai") {
       const normalized = normalizeOpenAIItem(value);
       if (!normalized.item) return;
-      const key = normalized.item.name.toLowerCase();
+      const key =
+        kind === "bigmodel-coding" || kind === "astron-code"
+          ? getBigModelCodingItemKey(normalized.item)
+          : normalized.item.name.toLowerCase();
       if (seen.has(key)) {
         duplicateCount += 1;
         return;
@@ -342,6 +357,10 @@ const normalizeItems = <K extends ProviderImportKind>(
 
 const serializeItem = (kind: ProviderImportKind, item: CanonicalProviderItem) => {
   switch (kind) {
+    case "bigmodel-coding":
+    case "astron-code":
+    case "openai":
+      return serializeOpenAIProvider(item as OpenAIProvider);
     case "gemini":
       return serializeGeminiKey(item as ProviderSimpleConfig);
     case "claude":
@@ -352,8 +371,6 @@ const serializeItem = (kind: ProviderImportKind, item: CanonicalProviderItem) =>
       return serializeOpenCodeGoKey(item as ProviderSimpleConfig);
     case "bedrock":
       return serializeBedrockKey(item as BedrockProviderConfig);
-    case "openai":
-      return serializeOpenAIProvider(item as OpenAIProvider);
   }
 };
 
@@ -366,15 +383,27 @@ const readEnvelope = (raw: unknown): { provider?: string; items: unknown } => {
   };
 };
 
+const getBigModelCodingItemKey = (item: OpenAIProvider) => {
+  const base = (item.baseUrl ?? "").toLowerCase();
+  const firstKey = item.apiKeyEntries?.[0]?.apiKey?.toLowerCase() ?? "";
+  return `${item.name.toLowerCase()}:${base}:${firstKey}`;
+};
+
 const getItemKey = (kind: ProviderImportKind, item: CanonicalProviderItem) =>
-  kind === "openai"
-    ? (item as OpenAIProvider).name.toLowerCase()
-    : (item as ProviderSimpleConfig).apiKey.toLowerCase();
+  kind === "bigmodel-coding" || kind === "astron-code"
+    ? getBigModelCodingItemKey(item as OpenAIProvider)
+    : kind === "openai"
+      ? (item as OpenAIProvider).name.toLowerCase()
+      : (item as ProviderSimpleConfig).apiKey.toLowerCase();
 
 const getItemLabel = (kind: ProviderImportKind, item: CanonicalProviderItem) =>
-  kind === "openai"
-    ? (item as OpenAIProvider).name
-    : (item as ProviderSimpleConfig).name || (item as ProviderSimpleConfig).apiKey;
+  kind === "bigmodel-coding" || kind === "astron-code"
+    ? (item as OpenAIProvider).baseUrl
+      ? `${(item as OpenAIProvider).name} (${(item as OpenAIProvider).baseUrl})`
+      : (item as OpenAIProvider).name
+    : kind === "openai"
+      ? (item as OpenAIProvider).name
+      : (item as ProviderSimpleConfig).name || (item as ProviderSimpleConfig).apiKey;
 
 export const createProviderExportText = <K extends ProviderImportKind>(
   kind: K,
