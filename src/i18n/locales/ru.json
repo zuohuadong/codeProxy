@@ -2103,5 +2103,12 @@
     "loading_models": "Загрузка моделей…",
     "no_models": "Нет данных о моделях",
     "no_match": "Нет результатов"
+  },
+  "providers": {
+    "confirm_delete_channel": "Очистить канал провайдера? Будут удалены все ключи и модели.",
+    "bigmodel_keys": "BigModel Coding",
+    "bigmodel_desc": "Zhipu Coding Plan (GLM). Один канал с ключами API, алиасами моделей и идентификатором codex.",
+    "astron_keys": "Astron Coding",
+    "astron_desc": "iFlytek Astron Coding Plan. Один канал с ключами API, алиасами моделей и идентификатором codex."
   }
 }

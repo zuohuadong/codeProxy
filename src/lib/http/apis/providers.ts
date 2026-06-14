@@ -349,4 +349,101 @@ export const providersApi = {
 
   deleteOpenAIProvider: (name: string) =>
     apiClient.delete("/openai-compatibility", undefined, { params: { name } }),
+
+  // BigModel Coding (Zhipu Coding Plan) — single OpenAI-compatible channel.
+  // The backend pins the provider name and identity-fingerprint=codex.
+  async getBigModelCodingProvider(): Promise<OpenAIProvider | null> {
+    const data = await apiClient.get("/bigmodel-coding-api-key");
+    const list = extractArrayPayload(data, "bigmodel-coding");
+    const items = list
+      .map((item) => {
+        if (!isRecord(item)) return null;
+        if (isOauthBackedProviderRow(item)) return null;
+        const name = normalizeString(item.name) ?? "";
+        if (!name) return null;
+        const disabled = item.disabled === true;
+        const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
+        const prefix = normalizeString(item.prefix) ?? undefined;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          "codex";
+        const headers = normalizeHeaders(item.headers);
+        const models = normalizeModels(item.models);
+        const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
+        const priorityRaw = item.priority;
+        const priority =
+          typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
+        const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+        return {
+          name,
+          ...(disabled ? { disabled } : {}),
+          ...(baseUrl ? { baseUrl } : {}),
+          ...(prefix ? { prefix } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
+          ...(headers ? { headers } : {}),
+          ...(models ? { models } : {}),
+          ...(apiKeyEntries ? { apiKeyEntries } : {}),
+          ...(priority !== undefined ? { priority } : {}),
+          ...(testModel ? { testModel } : {}),
+        };
+      })
+      .filter(Boolean) as OpenAIProvider[];
+    return items[0] ?? null;
+  },
+
+  saveBigModelCodingProvider: (provider: OpenAIProvider) =>
+    apiClient.put("/bigmodel-coding-api-key", [serializeOpenAIProvider(provider)]),
+
+  deleteBigModelCodingKey: (apiKey: string) =>
+    apiClient.delete("/bigmodel-coding-api-key", undefined, { params: { "api-key": apiKey } }),
+
+  clearBigModelCodingProvider: () => apiClient.delete("/bigmodel-coding-api-key"),
+
+  // iFlytek Astron Coding Plan — single OpenAI-compatible channel.
+  async getAstronCodeProvider(): Promise<OpenAIProvider | null> {
+    const data = await apiClient.get("/astron-code-api-key");
+    const list = extractArrayPayload(data, "astron-code");
+    const items = list
+      .map((item) => {
+        if (!isRecord(item)) return null;
+        if (isOauthBackedProviderRow(item)) return null;
+        const name = normalizeString(item.name) ?? "";
+        if (!name) return null;
+        const disabled = item.disabled === true;
+        const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
+        const prefix = normalizeString(item.prefix) ?? undefined;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          "codex";
+        const headers = normalizeHeaders(item.headers);
+        const models = normalizeModels(item.models);
+        const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
+        const priorityRaw = item.priority;
+        const priority =
+          typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
+        const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+        return {
+          name,
+          ...(disabled ? { disabled } : {}),
+          ...(baseUrl ? { baseUrl } : {}),
+          ...(prefix ? { prefix } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
+          ...(headers ? { headers } : {}),
+          ...(models ? { models } : {}),
+          ...(apiKeyEntries ? { apiKeyEntries } : {}),
+          ...(priority !== undefined ? { priority } : {}),
+          ...(testModel ? { testModel } : {}),
+        };
+      })
+      .filter(Boolean) as OpenAIProvider[];
+    return items[0] ?? null;
+  },
+
+  saveAstronCodeProvider: (provider: OpenAIProvider) =>
+    apiClient.put("/astron-code-api-key", [serializeOpenAIProvider(provider)]),
+
+  deleteAstronCodeKey: (apiKey: string) =>
+    apiClient.delete("/astron-code-api-key", undefined, { params: { "api-key": apiKey } }),
+
+  clearAstronCodeProvider: () => apiClient.delete("/astron-code-api-key"),
 };

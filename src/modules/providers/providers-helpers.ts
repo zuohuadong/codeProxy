@@ -204,8 +204,11 @@ export type OpenAIDraft = {
   modelEntries: ModelEntryDraft[];
 };
 
-export const buildOpenAIDraft = (input?: OpenAIProvider | null): OpenAIDraft => ({
-  name: input?.name ?? "",
+export const buildOpenAIDraft = (
+  input?: OpenAIProvider | null,
+  fixedName?: string,
+): OpenAIDraft => ({
+  name: fixedName ?? input?.name ?? "",
   disabled: input?.disabled === true,
   baseUrl: input?.baseUrl ?? "",
   prefix: input?.prefix ?? "",

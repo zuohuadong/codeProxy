@@ -26,6 +26,7 @@ import { OpenAIProviderModal } from "@/modules/providers/components/OpenAIProvid
 import { OpenAIProvidersTab } from "@/modules/providers/components/OpenAIProvidersTab";
 import { ProviderKeyModal } from "@/modules/providers/components/ProviderKeyModal";
 import { useOpenAIProviderEditor } from "@/modules/providers/hooks/useOpenAIProviderEditor";
+import { useSingleOpenAIProviderEditor } from "@/modules/providers/hooks/useSingleOpenAIProviderEditor";
 import { ProviderKeyListCard } from "@/modules/providers/ProviderKeyListCard";
 import { useProviderKeyEditor } from "@/modules/providers/hooks/useProviderKeyEditor";
 import { useProviderLatency } from "@/modules/providers/hooks/useProviderLatency";
@@ -53,7 +54,9 @@ type ProviderTab =
   | "vertex"
   | "bedrock"
   | "openai"
-  | "ampcode";
+  | "ampcode"
+  | "bigmodel"
+  | "astron";
 
 const getProviderSelectionKey = (
   kind: ProviderImportKind,
@@ -105,6 +108,7 @@ export function ProvidersPage() {
         index: number;
       }
     | { type: "deleteOpenAI"; index: number }
+    | { type: "deleteSingleChannel"; channel: "bigmodel" | "astron" }
   >(null);
   const handledRouteRef = useRef("");
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -141,6 +145,12 @@ export function ProvidersPage() {
             break;
           case "openai":
             setOpenaiProviders(await providersApi.getOpenAIProviders());
+            break;
+          case "bigmodel":
+            await bigModelEditor.load();
+            break;
+          case "astron":
+            await astronEditor.load();
             break;
           case "ampcode": {
             const [amp, ampMap] = await Promise.all([
@@ -264,6 +274,33 @@ export function ProvidersPage() {
       navigate("/ai-providers", { replace: true, viewTransition: true });
     }
   }, [location.pathname, navigate]);
+  const bigModelEditor = useSingleOpenAIProviderEditor({
+    fixedName: "bigmodel-coding",
+    api: {
+      get: () => providersApi.getBigModelCodingProvider(),
+      save: (provider) => providersApi.saveBigModelCodingProvider(provider),
+      clear: () => providersApi.clearBigModelCodingProvider(),
+    },
+    refreshAll,
+    startRefreshTransition: startTransition,
+    afterClose: handleKeyEditorRouteClose,
+  });
+
+  const astronEditor = useSingleOpenAIProviderEditor({
+    fixedName: "astron-code",
+    api: {
+      get: () => providersApi.getAstronCodeProvider(),
+      save: (provider) => providersApi.saveAstronCodeProvider(provider),
+      clear: () => providersApi.clearAstronCodeProvider(),
+    },
+    refreshAll,
+    startRefreshTransition: startTransition,
+    afterClose: handleKeyEditorRouteClose,
+  });
+
+  // Stable references for the single-provider channel editors (route effect deps).
+  const openBigModelEditor = bigModelEditor.openEditor;
+  const openAstronEditor = astronEditor.openEditor;
 
   const handleOpenAIEditorRouteClose = useCallback(() => {
     if (location.pathname !== "/ai-providers") {
@@ -389,9 +426,38 @@ export function ProvidersPage() {
         setSelectedExportKeys([]);
         setTab("ampcode");
         await refreshTab("ampcode");
+        return;
+      }
+
+      if (provider === "bigmodel") {
+        setSelectedExportKeys([]);
+        setTab("bigmodel");
+        await refreshTab("bigmodel");
+        if (action === "new" || action === "edit") {
+          openBigModelEditor();
+        }
+        return;
+      }
+
+      if (provider === "astron") {
+        setSelectedExportKeys([]);
+        setTab("astron");
+        await refreshTab("astron");
+        if (action === "new" || action === "edit") {
+          openAstronEditor();
+        }
+        return;
       }
     })();
-  }, [loading, location.pathname, openKeyEditor, openOpenAIEditor, refreshTab]);
+  }, [
+    loading,
+    location.pathname,
+    openKeyEditor,
+    openOpenAIEditor,
+    refreshTab,
+    openBigModelEditor,
+    openAstronEditor,
+  ]);
 
   const saveAmpcode = useCallback(async () => {
     try {
@@ -446,7 +512,7 @@ export function ProvidersPage() {
   );
 
   const getImportKind = useCallback((): ProviderImportKind | null => {
-    if (tab === "ampcode") return null;
+    if (tab === "ampcode" || tab === "bigmodel" || tab === "astron") return null;
     return tab;
   }, [tab]);
 
@@ -784,6 +850,14 @@ export function ProvidersPage() {
                 <img src={iconOpenai} alt="" className="hidden size-4 dark:block" />
                 {t("providers.openai_compatible")}
               </TabsTrigger>
+              <TabsTrigger value="bigmodel">
+                <img src={iconOpenai} alt="" className="size-4" />
+                BigModel
+              </TabsTrigger>
+              <TabsTrigger value="astron">
+                <img src={iconOpenai} alt="" className="size-4" />
+                Astron
+              </TabsTrigger>
               <TabsTrigger value="ampcode">
                 <img src={iconAmp} alt="" className="size-4" />
                 Ampcode
@@ -939,6 +1013,42 @@ export function ProvidersPage() {
             />
           </TabsContent>
 
+          <TabsContent value="bigmodel" className="flex min-h-0 flex-1 flex-col">
+            <OpenAIProvidersTab
+              providers={bigModelEditor.provider ? [bigModelEditor.provider] : []}
+              loading={isActiveTabListLoading("bigmodel")}
+              openOpenAIEditor={() => bigModelEditor.openEditor()}
+              confirmDelete={() => setConfirm({ type: "deleteSingleChannel", channel: "bigmodel" })}
+              maskApiKey={maskApiKey}
+              getKeyEntryStats={getOpenAIKeyEntryStats}
+              getProviderStats={getOpenAIProviderStats}
+              getProviderStatusBar={getOpenAIProviderStatusBar}
+              onToggleProviderEnabled={(_idx, enabled) =>
+                void bigModelEditor.toggleEnabled(enabled)
+              }
+              onToggleKeyEntryEnabled={(_pIdx, entryIndex, enabled) =>
+                void bigModelEditor.toggleKeyEntryEnabled(entryIndex, enabled)
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="astron" className="flex min-h-0 flex-1 flex-col">
+            <OpenAIProvidersTab
+              providers={astronEditor.provider ? [astronEditor.provider] : []}
+              loading={isActiveTabListLoading("astron")}
+              openOpenAIEditor={() => astronEditor.openEditor()}
+              confirmDelete={() => setConfirm({ type: "deleteSingleChannel", channel: "astron" })}
+              maskApiKey={maskApiKey}
+              getKeyEntryStats={getOpenAIKeyEntryStats}
+              getProviderStats={getOpenAIProviderStats}
+              getProviderStatusBar={getOpenAIProviderStatusBar}
+              onToggleProviderEnabled={(_idx, enabled) => void astronEditor.toggleEnabled(enabled)}
+              onToggleKeyEntryEnabled={(_pIdx, entryIndex, enabled) =>
+                void astronEditor.toggleKeyEntryEnabled(entryIndex, enabled)
+              }
+            />
+          </TabsContent>
+
           <TabsContent value="ampcode" className="flex min-h-0 flex-1 flex-col">
             <AmpcodePanel
               loading={loading}
@@ -997,6 +1107,44 @@ export function ProvidersPage() {
         maskApiKey={maskApiKey}
       />
 
+      <OpenAIProviderModal
+        open={bigModelEditor.editOpen}
+        editOpenAIIndex={bigModelEditor.editIndex}
+        openaiDraft={bigModelEditor.draft}
+        setOpenaiDraft={bigModelEditor.setDraft}
+        openaiDraftError={bigModelEditor.draftError}
+        closeOpenAIEditor={bigModelEditor.closeEditor}
+        saveOpenAIDraft={bigModelEditor.saveDraft}
+        discovering={bigModelEditor.discovering}
+        discoverModels={bigModelEditor.discoverModels}
+        applyDiscoveredModels={bigModelEditor.applyDiscoveredModels}
+        discoveredModels={bigModelEditor.discoveredModels}
+        discoverSelected={bigModelEditor.discoverSelected}
+        setDiscoverSelected={bigModelEditor.setDiscoverSelected}
+        proxyPoolEntries={proxyPoolEntries}
+        copyText={copyText}
+        maskApiKey={maskApiKey}
+      />
+
+      <OpenAIProviderModal
+        open={astronEditor.editOpen}
+        editOpenAIIndex={astronEditor.editIndex}
+        openaiDraft={astronEditor.draft}
+        setOpenaiDraft={astronEditor.setDraft}
+        openaiDraftError={astronEditor.draftError}
+        closeOpenAIEditor={astronEditor.closeEditor}
+        saveOpenAIDraft={astronEditor.saveDraft}
+        discovering={astronEditor.discovering}
+        discoverModels={astronEditor.discoverModels}
+        applyDiscoveredModels={astronEditor.applyDiscoveredModels}
+        discoveredModels={astronEditor.discoveredModels}
+        discoverSelected={astronEditor.discoverSelected}
+        setDiscoverSelected={astronEditor.setDiscoverSelected}
+        proxyPoolEntries={proxyPoolEntries}
+        copyText={copyText}
+        maskApiKey={maskApiKey}
+      />
+
       <ConfirmModal
         open={confirm !== null}
         title={t("providers.confirm_delete")}
@@ -1005,9 +1153,11 @@ export function ProvidersPage() {
             ? t("providers.confirm_delete_openai", {
                 name: openaiProviders[confirm.index]?.name ?? "",
               })
-            : confirm?.type === "deleteKey"
-              ? t("providers.confirm_delete_config")
-              : t("providers.confirm_delete_generic")
+            : confirm?.type === "deleteSingleChannel"
+              ? t("providers.confirm_delete_channel")
+              : confirm?.type === "deleteKey"
+                ? t("providers.confirm_delete_config")
+                : t("providers.confirm_delete_generic")
         }
         confirmText={t("providers.delete")}
         onClose={() => setConfirm(null)}
@@ -1017,6 +1167,12 @@ export function ProvidersPage() {
           if (!action) return;
           if (action.type === "deleteOpenAI") {
             void deleteOpenAIProvider(action.index);
+            return;
+          }
+          if (action.type === "deleteSingleChannel") {
+            void (action.channel === "bigmodel"
+              ? bigModelEditor.deleteChannel()
+              : astronEditor.deleteChannel());
             return;
           }
           void deleteKey(action.keyType, action.index);

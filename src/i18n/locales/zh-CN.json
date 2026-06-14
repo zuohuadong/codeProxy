@@ -2518,7 +2518,12 @@
     "test_model_placeholder": "例如 gpt-4.1",
     "api_key_placeholder": "粘贴 API 密钥",
     "anthropic_processing_label": "Anthropic 专有处理",
-    "anthropic_processing_hint": "开启时将执行 Anthropic 专有处理（伪装、缓存控制、工具前缀等）。如 Base URL 指向第三方 Claude 兼容 API（如 Kimi），建议关闭以提升性能。"
+    "anthropic_processing_hint": "开启时将执行 Anthropic 专有处理（伪装、缓存控制、工具前缀等）。如 Base URL 指向第三方 Claude 兼容 API（如 Kimi），建议关闭以提升性能。",
+    "confirm_delete_channel": "确定清空该渠道吗？将删除全部密钥与模型。",
+    "bigmodel_keys": "智谱 BigModel 编程",
+    "bigmodel_desc": "智谱编程计划 (GLM)。单渠道，支持 API Key、模型别名，使用 codex 身份。",
+    "astron_keys": "讯飞星火编程",
+    "astron_desc": "讯飞星火编程计划。单渠道，支持 API Key、模型别名，使用 codex 身份。"
   },
   "request_logs": {
     "title": "请求日志",
