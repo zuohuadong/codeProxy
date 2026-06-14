@@ -31,6 +31,8 @@ interface OpenAIProviderModalProps {
   proxyPoolEntries: ProxyPoolEntry[];
   copyText: (text: string) => Promise<void>;
   maskApiKey: (value: string) => string;
+  title?: string;
+  description?: string;
 }
 
 export function OpenAIProviderModal({
@@ -50,10 +52,10 @@ export function OpenAIProviderModal({
   proxyPoolEntries,
   copyText,
   maskApiKey,
+  title,
+  description,
 }: OpenAIProviderModalProps) {
   const { t } = useTranslation();
-  const [discoverQuery, setDiscoverQuery] = useState("");
-  const discoveredListRef = useRef<HTMLDivElement | null>(null);
   const identityFingerprintOptions = useMemo(
     () => [
       { value: "", label: t("providers.identity_fingerprint_none") },
@@ -61,6 +63,8 @@ export function OpenAIProviderModal({
     ],
     [t],
   );
+  const [discoverQuery, setDiscoverQuery] = useState("");
+  const discoveredListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -104,10 +108,14 @@ export function OpenAIProviderModal({
       open={open}
       title={
         editOpenAIIndex === null
-          ? t("providers.add_openai_provider")
-          : t("providers.edit_openai_provider")
+          ? title
+            ? t("providers.add_provider", { provider: title })
+            : t("providers.add_openai_provider")
+          : title
+            ? t("providers.edit_provider", { provider: title })
+            : t("providers.edit_openai_provider")
       }
-      description={t("providers.openai_config_desc")}
+      description={description ?? t("providers.openai_config_desc")}
       onClose={closeOpenAIEditor}
       footer={
         <div className="flex flex-wrap items-center gap-2">

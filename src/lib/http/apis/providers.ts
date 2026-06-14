@@ -10,8 +10,8 @@ import {
   isRecord,
   normalizeApiKeyEntries,
   normalizeExcludedModels,
-  normalizeHeaders,
   normalizeIdentityFingerprint,
+  normalizeHeaders,
   normalizeModels,
   normalizeString,
   serializeGeminiKey,
@@ -33,6 +33,108 @@ const isOauthBackedProviderRow = (item: Record<string, unknown>): boolean => {
 };
 
 export const providersApi = {
+  async getBigModelCodingProviders(): Promise<OpenAIProvider[]> {
+    const data = await apiClient.get("/bigmodel-coding-api-key");
+    const list = extractArrayPayload(data, "bigmodel-coding-api-key");
+    return list
+      .map((item) => {
+        if (!isRecord(item)) return null;
+        if (isOauthBackedProviderRow(item)) return null;
+        const name = normalizeString(item.name) ?? "";
+        if (!name) return null;
+        const disabled = item.disabled === true;
+        const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
+        const prefix = normalizeString(item.prefix) ?? undefined;
+        const headers = normalizeHeaders(item.headers);
+        const models = normalizeModels(item.models);
+        const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
+        const priorityRaw = item.priority;
+        const priority =
+          typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
+        const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+        const disableCooling = item["disable-cooling"] === true;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          undefined;
+        return {
+          name,
+          ...(disabled ? { disabled } : {}),
+          ...(baseUrl ? { baseUrl } : {}),
+          ...(prefix ? { prefix } : {}),
+          ...(headers ? { headers } : {}),
+          ...(models ? { models } : {}),
+          ...(apiKeyEntries ? { apiKeyEntries } : {}),
+          ...(priority !== undefined ? { priority } : {}),
+          ...(testModel ? { testModel } : {}),
+          ...(disableCooling ? { disableCooling } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
+        };
+      })
+      .filter(Boolean) as OpenAIProvider[];
+  },
+
+  saveBigModelCodingProviders: (providers: OpenAIProvider[]) =>
+    apiClient.put(
+      "/bigmodel-coding-api-key",
+      providers.map((item) => serializeOpenAIProvider(item)),
+    ),
+
+  deleteBigModelCodingProvider: (_name: string, index?: number) =>
+    apiClient.delete("/bigmodel-coding-api-key", undefined, {
+      params: index !== undefined ? { index } : { name: _name },
+    }),
+
+  async getAstronCodeProviders(): Promise<OpenAIProvider[]> {
+    const data = await apiClient.get("/astron-code-api-key");
+    const list = extractArrayPayload(data, "astron-code-api-key");
+    return list
+      .map((item) => {
+        if (!isRecord(item)) return null;
+        if (isOauthBackedProviderRow(item)) return null;
+        const name = normalizeString(item.name) ?? "";
+        if (!name) return null;
+        const disabled = item.disabled === true;
+        const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
+        const prefix = normalizeString(item.prefix) ?? undefined;
+        const headers = normalizeHeaders(item.headers);
+        const models = normalizeModels(item.models);
+        const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
+        const priorityRaw = item.priority;
+        const priority =
+          typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
+        const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+        const disableCooling = item["disable-cooling"] === true;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          undefined;
+        return {
+          name,
+          ...(disabled ? { disabled } : {}),
+          ...(baseUrl ? { baseUrl } : {}),
+          ...(prefix ? { prefix } : {}),
+          ...(headers ? { headers } : {}),
+          ...(models ? { models } : {}),
+          ...(apiKeyEntries ? { apiKeyEntries } : {}),
+          ...(priority !== undefined ? { priority } : {}),
+          ...(testModel ? { testModel } : {}),
+          ...(disableCooling ? { disableCooling } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
+        };
+      })
+      .filter(Boolean) as OpenAIProvider[];
+  },
+
+  saveAstronCodeProviders: (providers: OpenAIProvider[]) =>
+    apiClient.put(
+      "/astron-code-api-key",
+      providers.map((item) => serializeOpenAIProvider(item)),
+    ),
+
+  deleteAstronCodeProvider: (_name: string, index?: number) =>
+    apiClient.delete("/astron-code-api-key", undefined, {
+      params: index !== undefined ? { index } : { name: _name },
+    }),
+
   async getGeminiKeys(): Promise<ProviderSimpleConfig[]> {
     const data = await apiClient.get("/gemini-api-key");
     const list = extractArrayPayload(data, "gemini-api-key");
@@ -315,9 +417,6 @@ export const providersApi = {
         const disabled = item.disabled === true;
         const baseUrl = normalizeString(item["base-url"] ?? item.baseUrl) ?? undefined;
         const prefix = normalizeString(item.prefix) ?? undefined;
-        const identityFingerprint =
-          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
-          undefined;
         const headers = normalizeHeaders(item.headers);
         const models = normalizeModels(item.models);
         const apiKeyEntries = normalizeApiKeyEntries(item["api-key-entries"] ?? item.apiKeyEntries);
@@ -325,17 +424,22 @@ export const providersApi = {
         const priority =
           typeof priorityRaw === "number" && Number.isFinite(priorityRaw) ? priorityRaw : undefined;
         const testModel = normalizeString(item["test-model"] ?? item.testModel) ?? undefined;
+        const disableCooling = item["disable-cooling"] === true;
+        const identityFingerprint =
+          normalizeIdentityFingerprint(item["identity-fingerprint"] ?? item.identityFingerprint) ??
+          undefined;
         return {
           name,
           ...(disabled ? { disabled } : {}),
           ...(baseUrl ? { baseUrl } : {}),
           ...(prefix ? { prefix } : {}),
-          ...(identityFingerprint ? { identityFingerprint } : {}),
           ...(headers ? { headers } : {}),
           ...(models ? { models } : {}),
           ...(apiKeyEntries ? { apiKeyEntries } : {}),
           ...(priority !== undefined ? { priority } : {}),
           ...(testModel ? { testModel } : {}),
+          ...(disableCooling ? { disableCooling } : {}),
+          ...(identityFingerprint ? { identityFingerprint } : {}),
         };
       })
       .filter(Boolean) as OpenAIProvider[];

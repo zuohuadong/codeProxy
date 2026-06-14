@@ -19,6 +19,8 @@ interface UseOpenAIProviderEditorArgs {
   refreshAll: () => Promise<void>;
   startRefreshTransition: (action: () => void) => void;
   afterClose: () => void;
+  saveProviders?: (providers: OpenAIProvider[]) => Promise<unknown>;
+  deleteProvider?: (name: string, index?: number) => Promise<unknown>;
 }
 
 export function useOpenAIProviderEditor({
@@ -27,6 +29,8 @@ export function useOpenAIProviderEditor({
   refreshAll,
   startRefreshTransition,
   afterClose,
+  saveProviders = providersApi.saveOpenAIProviders,
+  deleteProvider = providersApi.deleteOpenAIProvider,
 }: UseOpenAIProviderEditorArgs) {
   const { t } = useTranslation();
   const { notify } = useToast();
@@ -93,11 +97,6 @@ export function useOpenAIProviderEditor({
       })
       .filter(Boolean) as OpenAIProvider["apiKeyEntries"];
 
-    if (!apiKeyEntries || apiKeyEntries.length === 0) {
-      setOpenaiDraftError(t("providers.key_entry_error"));
-      return null;
-    }
-
     const modelCommit = commitModelEntries(openaiDraft.modelEntries);
     if (modelCommit.error) {
       setOpenaiDraftError(modelCommit.error);
@@ -111,14 +110,15 @@ export function useOpenAIProviderEditor({
       ...(openaiDraft.disabled ? { disabled: true } : {}),
       baseUrl,
       ...(openaiDraft.prefix.trim() ? { prefix: openaiDraft.prefix.trim() } : {}),
-      ...(openaiDraft.identityFingerprint.trim()
-        ? { identityFingerprint: openaiDraft.identityFingerprint.trim() }
-        : {}),
       ...(headers ? { headers } : {}),
       ...(priority !== undefined ? { priority } : {}),
       ...(openaiDraft.testModel.trim() ? { testModel: openaiDraft.testModel.trim() } : {}),
+      ...(openaiDraft.disableCooling ? { disableCooling: true } : {}),
+      ...(openaiDraft.identityFingerprint.trim()
+        ? { identityFingerprint: openaiDraft.identityFingerprint.trim() }
+        : {}),
       ...(modelCommit.models ? { models: modelCommit.models } : {}),
-      apiKeyEntries,
+      ...(apiKeyEntries?.length ? { apiKeyEntries } : {}),
     };
   }, [openaiDraft, t]);
 
@@ -136,7 +136,7 @@ export function useOpenAIProviderEditor({
             );
 
       setOpenaiProviders(next);
-      await providersApi.saveOpenAIProviders(next);
+      await saveProviders(next);
       notify({ type: "success", message: t("providers.saved") });
       closeOpenAIEditor();
       startRefreshTransition(() => void refreshAll());
@@ -163,7 +163,7 @@ export function useOpenAIProviderEditor({
       const entry = openaiProviders[index];
       if (!entry) return;
       try {
-        await providersApi.deleteOpenAIProvider(entry.name);
+        await deleteProvider(entry.name, index);
         setOpenaiProviders((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
         notify({ type: "success", message: t("providers.deleted") });
       } catch (err: unknown) {
@@ -197,7 +197,7 @@ export function useOpenAIProviderEditor({
 
       setOpenaiProviders(next);
       try {
-        await providersApi.saveOpenAIProviders(next);
+        await saveProviders(next);
         notify({
           type: "success",
           message: enabled ? t("providers.toggle_enabled") : t("providers.toggle_disabled"),
@@ -211,7 +211,15 @@ export function useOpenAIProviderEditor({
         });
       }
     },
-    [notify, openaiProviders, refreshAll, setOpenaiProviders, startRefreshTransition, t],
+    [
+      notify,
+      openaiProviders,
+      refreshAll,
+      setOpenaiProviders,
+      saveProviders,
+      startRefreshTransition,
+      t,
+    ],
   );
 
   const toggleOpenAIProviderEnabled = useCallback(
@@ -228,7 +236,7 @@ export function useOpenAIProviderEditor({
 
       setOpenaiProviders(next);
       try {
-        await providersApi.saveOpenAIProviders(next);
+        await saveProviders(next);
         notify({
           type: "success",
           message: enabled ? t("providers.toggle_enabled") : t("providers.toggle_disabled"),
@@ -242,7 +250,15 @@ export function useOpenAIProviderEditor({
         });
       }
     },
-    [notify, openaiProviders, refreshAll, setOpenaiProviders, startRefreshTransition, t],
+    [
+      notify,
+      openaiProviders,
+      refreshAll,
+      setOpenaiProviders,
+      saveProviders,
+      startRefreshTransition,
+      t,
+    ],
   );
 
   const discoverModels = useCallback(async () => {

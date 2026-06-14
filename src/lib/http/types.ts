@@ -15,6 +15,7 @@ export type AuthFileType =
   | "antigravity"
   | "iflow"
   | "vertex"
+  | "xai"
   | "empty"
   | "unknown";
 
@@ -138,6 +139,7 @@ export interface ChartDataResponse {
     failed_requests: number;
     input_tokens: number;
     output_tokens: number;
+    total_tokens: number;
   }[];
   model_distribution: { model: string; requests: number; tokens: number }[];
   hourly_tokens: {
@@ -170,6 +172,7 @@ export interface ProviderModel {
   alias?: string;
   priority?: number;
   testModel?: string;
+  contextLength?: number;
 }
 
 export interface ProviderApiKeyEntry {
@@ -185,12 +188,13 @@ export interface OpenAIProvider {
   disabled?: boolean;
   baseUrl?: string;
   prefix?: string;
-  identityFingerprint?: string;
   headers?: Record<string, string>;
   models?: ProviderModel[];
   apiKeyEntries?: ProviderApiKeyEntry[];
   priority?: number;
   testModel?: string;
+  disableCooling?: boolean;
+  identityFingerprint?: string;
 }
 
 export interface ProviderSimpleConfig {

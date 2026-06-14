@@ -9,6 +9,7 @@ import { ToggleSwitch } from "@/modules/ui/ToggleSwitch";
 
 interface OpenAIProvidersTabProps {
   providers: OpenAIProvider[];
+  kind?: "openai" | "bigmodel-coding" | "astron-code";
   loading?: boolean;
   openOpenAIEditor: (index: number | null) => void;
   confirmDelete: (index: number) => void;
@@ -28,10 +29,16 @@ interface OpenAIProvidersTabProps {
   onToggleKeyEntryEnabled?: (providerIndex: number, entryIndex: number, enabled: boolean) => void;
   selectedKeys?: Set<string>;
   onToggleSelected?: (key: string, checked: boolean) => void;
+  title?: string;
+  description?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  addLabel?: string;
 }
 
 export function OpenAIProvidersTab({
   providers,
+  kind,
   loading = false,
   openOpenAIEditor,
   confirmDelete,
@@ -43,27 +50,32 @@ export function OpenAIProvidersTab({
   onToggleKeyEntryEnabled,
   selectedKeys,
   onToggleSelected,
+  title,
+  description,
+  emptyTitle,
+  emptyDescription,
+  addLabel,
 }: OpenAIProvidersTabProps) {
   const { t } = useTranslation();
 
   return (
     <Card
-      title={t("providers.openai_compatible")}
-      description={t("providers.claude_desc")}
+      title={title ?? t("providers.openai_compatible")}
+      description={description ?? t("providers.claude_desc")}
       className="flex h-full min-h-0 flex-col"
       bodyClassName="min-h-0 flex flex-1 flex-col"
       loading={loading}
       actions={
         <Button variant="primary" size="sm" onClick={() => openOpenAIEditor(null)}>
           <Plus size={14} />
-          {t("providers.add_provider")}
+          {addLabel ?? t("providers.add_provider")}
         </Button>
       }
     >
       {providers.length === 0 ? (
         <EmptyState
-          title={t("providers.no_openai_providers")}
-          description={t("providers.no_openai_desc")}
+          title={emptyTitle ?? t("providers.no_openai_providers")}
+          description={emptyDescription ?? t("providers.no_openai_desc")}
         />
       ) : (
         <div
@@ -71,7 +83,10 @@ export function OpenAIProvidersTab({
           className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1"
         >
           {providers.map((provider, idx) => {
-            const selectionKey = provider.name.trim().toLowerCase();
+            const selectionKey =
+              kind === "bigmodel-coding" || kind === "astron-code"
+                ? `${provider.name.trim().toLowerCase()}:${idx}`
+                : provider.name.trim().toLowerCase();
             const selected = selectedKeys?.has(selectionKey) ?? false;
             const headerEntries = Object.entries(provider.headers || {});
             const stats = getProviderStats(provider);
