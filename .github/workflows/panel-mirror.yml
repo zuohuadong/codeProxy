@@ -53,7 +53,7 @@ jobs:
           TAG: ${{ steps.upstream.outputs.tag }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
@@ -90,6 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "$TAG" panel-dist.zip dist/manage.html \
+            --repo "$GITHUB_REPOSITORY" \
             --latest \
             --title "Panel $TAG" \
             --notes "Built from ${UPSTREAM_REPOSITORY%.git}@$SHA ($UPSTREAM_BRANCH)."
