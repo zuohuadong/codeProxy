@@ -89,7 +89,7 @@ jobs:
           SHA: ${{ steps.upstream.outputs.sha }}
         run: |
           set -euo pipefail
-          gh release create "$TAG" panel-dist.zip dist/management.html \
+          gh release create "$TAG" panel-dist.zip dist/manage.html \
             --latest \
             --title "Panel $TAG" \
             --notes "Built from ${UPSTREAM_REPOSITORY%.git}@$SHA ($UPSTREAM_BRANCH)."
